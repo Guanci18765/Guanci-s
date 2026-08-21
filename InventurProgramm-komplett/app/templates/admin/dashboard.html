@@ -1,0 +1,315 @@
+{% extends "base.html" %}
+
+{% block title %}
+    Geräteübersicht · Inventur
+{% endblock %}
+
+{% block header_actions %}
+<form method="post" action="/admin/logout">
+
+    <input
+        type="hidden"
+        name="csrf_token"
+        value="{{ csrf_token }}"
+    >
+
+    <button
+        class="button button-ghost"
+        type="submit"
+    >
+        Abmelden
+    </button>
+
+</form>
+{% endblock %}
+
+
+{% block content %}
+
+<section class="hero-row">
+
+    <div>
+        <p class="eyebrow">Admin Dashboard</p>
+
+        <h1>Geräte im Blick.</h1>
+
+        <p class="muted">
+            Verfügbarkeit, Zustand und Ausleihen
+            an einem Ort.
+        </p>
+    </div>
+
+    <a
+        class="button button-primary"
+        href="/admin/devices/new"
+    >
+        + Gerät anlegen
+    </a>
+
+</section>
+
+
+<section class="stats-grid">
+
+    <article class="stat-card">
+        <span>Alle Geräte</span>
+        <strong>{{ counts.all }}</strong>
+    </article>
+
+    <article class="stat-card success">
+        <span>Verfügbar</span>
+        <strong>{{ counts.available }}</strong>
+    </article>
+
+    <article class="stat-card info">
+        <span>Ausgeliehen</span>
+        <strong>{{ counts.loaned }}</strong>
+    </article>
+
+    <article class="stat-card warning">
+        <span>Gesperrt</span>
+        <strong>{{ counts.blocked }}</strong>
+    </article>
+
+</section>
+
+
+<section class="card table-card">
+
+    <div class="section-heading">
+
+        <div>
+            <p class="eyebrow">Bestand</p>
+            <h2>Geräteübersicht</h2>
+        </div>
+
+        <span class="muted">
+            {{ devices | length }} Einträge
+        </span>
+
+    </div>
+
+
+    <div class="table-wrap">
+
+        <table>
+
+            <thead>
+                <tr>
+                    <th>Gerät</th>
+                    <th>Status</th>
+                    <th>Momentaner User</th>
+                    <th>System / Update</th>
+                    <th>Setup</th>
+                    <th>Standort</th>
+                    <th></th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+            {% for device in devices %}
+
+                <tr>
+
+                    <td>
+                        <strong>{{ device.name }}</strong>
+                        <small>{{ device.device_type }}</small>
+                    </td>
+
+
+                    <td>
+                        {% if not device.is_active %}
+
+                            <span class="badge badge-gray">
+                                Inaktiv
+                            </span>
+
+                        {% elif device.active_borrower %}
+
+                            <span class="badge badge-blue">
+                                Ausgeliehen
+                            </span>
+
+                        {% elif device.condition == "ready"
+                            and device.setup_complete %}
+
+                            <span class="badge badge-green">
+                                Verfügbar
+                            </span>
+
+                        {% elif device.condition == "service" %}
+
+                            <span class="badge badge-amber">
+                                Service
+                            </span>
+
+                        {% elif device.condition == "defective" %}
+
+                            <span class="badge badge-red">
+                                Defekt
+                            </span>
+
+                        {% else %}
+
+                            <span class="badge badge-amber">
+                                Setup offen
+                            </span>
+
+                        {% endif %}
+                    </td>
+
+
+                    <td>
+                        {% if device.active_borrower %}
+
+                            <strong>
+                                {{ device.active_borrower }}
+                            </strong>
+
+                            <small>
+                                seit {{ device.checked_out_at }}
+                            </small>
+
+                        {% else %}
+
+                            <span class="muted">—</span>
+
+                        {% endif %}
+                    </td>
+
+
+                    <td>
+                        {{ device.operating_system or "—" }}
+
+                        <small>
+                            Update:
+                            {{ device.latest_update_date | date_de }}
+                        </small>
+                    </td>
+
+
+                    <td>
+                        {{ "Ja" if device.setup_complete else "Nein" }}
+                    </td>
+
+
+                    <td>
+                        {{ device.location }}
+                    </td>
+
+
+                    <td class="actions">
+
+                        <a
+                            href="/device/{{ device.public_id }}"
+                            target="_blank"
+                        >
+                            Scan-Seite
+                        </a>
+
+                        <a
+                            href="/admin/devices/{{ device.public_id }}/edit"
+                        >
+                            Bearbeiten
+                        </a>
+
+                    </td>
+
+                </tr>
+
+            {% else %}
+
+                <tr>
+                    <td
+                        colspan="7"
+                        class="empty-state"
+                    >
+                        Noch keine Geräte vorhanden.
+                    </td>
+                </tr>
+
+            {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</section>
+
+
+<section class="card table-card">
+
+    <div class="section-heading">
+
+        <div>
+            <p class="eyebrow">Verlauf</p>
+            <h2>Letzte Ausleihen</h2>
+        </div>
+
+    </div>
+
+
+    <div class="table-wrap">
+
+        <table>
+
+            <thead>
+                <tr>
+                    <th>Gerät</th>
+                    <th>Benutzer</th>
+                    <th>Ausgeliehen</th>
+                    <th>Zurückgegeben</th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+            {% for loan in loans %}
+
+                <tr>
+
+                    <td>
+                        <strong>
+                            {{ loan.device_name }}
+                        </strong>
+                    </td>
+
+                    <td>
+                        {{ loan.borrower_name }}
+                    </td>
+
+                    <td>
+                        {{ loan.checked_out_at }}
+                    </td>
+
+                    <td>
+                        {{ loan.returned_at or "Noch aktiv" }}
+                    </td>
+
+                </tr>
+
+            {% else %}
+
+                <tr>
+                    <td
+                        colspan="4"
+                        class="empty-state"
+                    >
+                        Noch keine Ausleihen vorhanden.
+                    </td>
+                </tr>
+
+            {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</section>
+
+{% endblock %}
