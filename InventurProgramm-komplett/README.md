@@ -1,35 +1,76 @@
-## Start unter Windows
+## Installation und Start
 
-Die Anwendung funktioniert unter Windows, macOS und Linux. Die virtuelle Python-Umgebung wird auf jedem Computer neu erstellt und gehört nicht in das Git-Repository.
+Das Inventurprogramm funktioniert unter macOS und Windows. Die virtuelle Python-Umgebung `.venv` wird auf jedem Computer neu erstellt und darf nicht in Git gespeichert werden.
 
 ### Voraussetzungen
 
 - Python 3.12 oder neuer
 - Git
 - Visual Studio Code
-- Zugriff auf das Projekt-Repository
+- Zugriff auf das Git-Repository
 
-### Repository herunterladen
+## Installation unter macOS
 
-Öffne PowerShell und wechsle in den gewünschten Projektordner:
+Repository herunterladen:
 
-```powershell
-cd C:\Pfad\zum\Projektordner
-```
-
-Repository klonen:
-
-```powershell
+```bash
 git clone git@github.com:DEIN-USERNAME/DEIN-REPOSITORY.git
-```
-
-Anschließend in das Projekt wechseln:
-
-```powershell
 cd DEIN-REPOSITORY
 ```
 
-### Virtuelle Python-Umgebung erstellen
+Virtuelle Umgebung erstellen:
+
+```bash
+python3 -m venv .venv
+```
+
+Virtuelle Umgebung aktivieren:
+
+```bash
+source .venv/bin/activate
+```
+
+Abhängigkeiten installieren:
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+Umgebungsdatei erstellen:
+
+```bash
+cp .env.example .env
+```
+
+Anwendung starten:
+
+```bash
+fastapi dev app/main.py
+```
+
+Der Adminbereich ist anschließend erreichbar unter:
+
+```text
+http://127.0.0.1:8000/admin/
+```
+
+Virtuelle Umgebung beenden:
+
+```bash
+deactivate
+```
+
+## Installation unter Windows
+
+PowerShell öffnen und das Repository herunterladen:
+
+```powershell
+git clone git@github.com:DEIN-USERNAME/DEIN-REPOSITORY.git
+cd DEIN-REPOSITORY
+```
+
+Virtuelle Umgebung erstellen:
 
 ```powershell
 py -m venv .venv
@@ -59,57 +100,20 @@ Danach erneut aktivieren:
 .\.venv\Scripts\Activate.ps1
 ```
 
-Eine aktive Umgebung wird im Terminal so angezeigt:
-
-```text
-(.venv) PS C:\Pfad\zum\InventurProgramm>
-```
-
-### Abhängigkeiten installieren
+Abhängigkeiten installieren:
 
 ```powershell
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-SQLite ist bereits in Python enthalten und muss nicht separat installiert werden.
-
-### Umgebungsdatei erstellen
-
-Falls eine `.env.example` vorhanden ist:
+Umgebungsdatei erstellen:
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-Andernfalls:
-
-```powershell
-New-Item .env -ItemType File
-```
-
-Die `.env` muss beispielsweise folgende Einstellungen enthalten:
-
-```env
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=ein-sicheres-einzigartiges-passwort
-SESSION_SECRET=eine-lange-zufaellige-zeichenfolge
-PUBLIC_BASE_URL=http://127.0.0.1:8000
-FORCE_HTTPS=false
-SEED_DEMO_DATA=false
-```
-
-Ein sicheres Session-Secret kann mit Python erzeugt werden:
-
-```powershell
-python -c "import secrets; print(secrets.token_urlsafe(64))"
-```
-
-Den ausgegebenen Wert in `.env` hinter `SESSION_SECRET=` eintragen.
-
-Die Datei `.env` darf nicht in das Git-Repository übertragen werden.
-
-### Anwendung lokal starten
+Anwendung starten:
 
 ```powershell
 fastapi dev app/main.py
@@ -121,66 +125,121 @@ Der Adminbereich ist anschließend erreichbar unter:
 http://127.0.0.1:8000/admin/
 ```
 
-### Zugriff über Smartphone oder Tablet
-
-Damit andere Geräte im lokalen Netzwerk auf die Anwendung zugreifen können, muss FastAPI auf allen Netzwerkadressen lauschen:
+Virtuelle Umgebung beenden:
 
 ```powershell
+deactivate
+```
+
+## Konfiguration der `.env`
+
+Die lokale `.env` enthält die Einstellungen und Zugangsdaten:
+
+```env
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=ein-sicheres-einzigartiges-passwort
+SESSION_SECRET=eine-lange-zufaellige-zeichenfolge
+PUBLIC_BASE_URL=http://127.0.0.1:8000
+FORCE_HTTPS=false
+SEED_DEMO_DATA=false
+```
+
+Ein sicheres `SESSION_SECRET` kann auf beiden Betriebssystemen erzeugt werden:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(64))"
+```
+
+Den ausgegebenen Wert hinter `SESSION_SECRET=` eintragen.
+
+Die Datei `.env` darf nicht in Git gespeichert werden. Die `.gitignore` muss mindestens Folgendes enthalten:
+
+```gitignore
+.env
+.venv/
+inventory.db
+__pycache__/
+*.py[cod]
+.DS_Store
+```
+
+## Zugriff über Smartphone oder Tablet
+
+Für den Zugriff über QR-Code muss das Smartphone die Anwendung über die Netzwerkadresse des Computers erreichen können.
+
+FastAPI auf allen Netzwerkadressen starten:
+
+```bash
 fastapi dev app/main.py --host 0.0.0.0
 ```
 
-Die IPv4-Adresse des Windows-Geräts ermitteln:
+### IP-Adresse unter macOS ermitteln
+
+```bash
+ipconfig getifaddr en0
+```
+
+Beispiel:
+
+```text
+192.168.17.20
+```
+
+### IP-Adresse unter Windows ermitteln
 
 ```powershell
 ipconfig
 ```
 
-Unter dem aktiven Netzwerkadapter steht beispielsweise:
+Unter dem aktiven Netzwerkadapter nach der IPv4-Adresse suchen.
+
+Beispiel:
 
 ```text
 IPv4-Adresse: 192.168.17.20
 ```
 
-Die `.env` entsprechend anpassen:
+Anschließend die `.env` anpassen:
 
 ```env
 PUBLIC_BASE_URL=http://192.168.17.20:8000
 FORCE_HTTPS=false
 ```
 
-FastAPI danach neu starten.
-
-Auf dem Smartphone kann die Anwendung dann beispielsweise unter dieser Adresse geöffnet werden:
+FastAPI danach neu starten. Die Anwendung ist dann beispielsweise erreichbar unter:
 
 ```text
 http://192.168.17.20:8000
 ```
 
-Windows fragt beim ersten Start möglicherweise, ob Python Netzwerkzugriff erhalten darf. Der Zugriff sollte ausschließlich für private beziehungsweise vertrauenswürdige Netzwerke erlaubt werden.
+Der QR-Code muss ebenfalls eine Adresse nach diesem Muster enthalten:
 
-Falls keine Abfrage erscheint, muss gegebenenfalls eine eingehende Firewallregel für TCP-Port `8000` eingerichtet werden. Dafür sind Administratorrechte erforderlich.
+```text
+http://192.168.17.20:8000/device/GERAETE-ID
+```
 
-Smartphone und Windows-Gerät müssen sich im gleichen erreichbaren Netzwerk befinden. Gast-WLANs blockieren häufig die Kommunikation zwischen einzelnen Geräten.
+Voraussetzungen für den Smartphone-Zugriff:
 
-### Dauerhafter Betrieb auf einem Windows-Server
+- Computer und Smartphone befinden sich im gleichen erreichbaren Netzwerk.
+- Es wird kein isoliertes Gast-WLAN verwendet.
+- TCP-Port `8000` wird nicht von der Firewall blockiert.
+- Python darf eingehende Verbindungen im privaten Netzwerk annehmen.
+- `FORCE_HTTPS` steht beim lokalen HTTP-Test auf `false`.
+
+## Dauerhafter Serverbetrieb
 
 Für den Serverbetrieb wird nicht der Entwicklungsmodus verwendet:
 
-```powershell
+```bash
 fastapi run app/main.py --host 0.0.0.0 --port 8000
 ```
 
-Für einen produktiven Firmeneinsatz sollten zusätzlich eingerichtet werden:
+Für den produktiven Firmeneinsatz sollten zusätzlich eingerichtet werden:
 
-- automatischer Start als Windows-Dienst
+- automatischer Start als Dienst
 - feste IP-Adresse oder DNS-Name
 - regelmäßige Sicherung von `inventory.db`
 - Firewallfreigabe nur für benötigte Netzwerke
-- HTTPS über IIS, Caddy oder einen anderen Reverse Proxy
+- HTTPS über einen Reverse Proxy
 - sichere Admin-Zugangsdaten
-
-### Virtuelle Umgebung beenden
-
-```powershell
-deactivate
-```
+- Schutz vor wiederholten Loginversuchen
