@@ -9,8 +9,12 @@ from typing import Iterator
 
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
+
 DATABASE_PATH = Path(
-    os.getenv("DATABASE_PATH", PROJECT_DIR / "inventory.db")
+    os.getenv(
+        "DATABASE_PATH",
+        PROJECT_DIR / "inventory.db",
+    )
 )
 
 
@@ -59,7 +63,12 @@ def database_session() -> Iterator[sqlite3.Connection]:
 
 
 def initialize_database() -> None:
-    """Erstellt die benötigten Tabellen und aktualisiert ältere Tabellen."""
+    """
+    Erstellt die benötigten Tabellen.
+
+    Bereits vorhandene Tabellen werden bei Bedarf
+    um neue Spalten erweitert.
+    """
 
     with database_session() as connection:
         connection.executescript(
@@ -78,7 +87,9 @@ def initialize_database() -> None:
                 latest_update_date TEXT,
 
                 setup_complete INTEGER NOT NULL DEFAULT 0
-                    CHECK (setup_complete IN (0, 1)),
+                    CHECK (
+                        setup_complete IN (0, 1)
+                    ),
 
                 location TEXT NOT NULL DEFAULT 'Büro',
 
@@ -92,9 +103,12 @@ def initialize_database() -> None:
                     ),
 
                 is_active INTEGER NOT NULL DEFAULT 1
-                    CHECK (is_active IN (0, 1)),
+                    CHECK (
+                        is_active IN (0, 1)
+                    ),
 
-                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                created_at TEXT NOT NULL
+                    DEFAULT CURRENT_TIMESTAMP
             );
 
 
@@ -107,6 +121,8 @@ def initialize_database() -> None:
 
                 checked_out_at TEXT NOT NULL
                     DEFAULT CURRENT_TIMESTAMP,
+
+                expected_return_at TEXT,
 
                 returned_at TEXT,
 
@@ -128,30 +144,56 @@ def initialize_database() -> None:
             """
         )
 
-        # Prüfen, ob die bestehende Tabelle bereits is_active besitzt
-        columns = connection.execute(
+        # Spalten der bestehenden devices-Tabelle abfragen
+        device_columns = connection.execute(
             """
             PRAGMA table_info(devices)
             """
         ).fetchall()
 
-        column_names = {
-            column["name"] for column in columns
+        device_column_names = {
+            column["name"]
+            for column in device_columns
         }
 
-        # Bestehende Datenbank um is_active erweitern
-        if "is_active" not in column_names:
+        # Ältere devices-Tabelle um is_active erweitern
+        if "is_active" not in device_column_names:
             connection.execute(
                 """
                 ALTER TABLE devices
                 ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1
-                    CHECK (is_active IN (0, 1))
+                    CHECK (
+                        is_active IN (0, 1)
+                    )
+                """
+            )
+
+        # Spalten der bestehenden loans-Tabelle abfragen
+        loan_columns = connection.execute(
+            """
+            PRAGMA table_info(loans)
+            """
+        ).fetchall()
+
+        loan_column_names = {
+            column["name"]
+            for column in loan_columns
+        }
+
+        # Ältere loans-Tabelle um expected_return_at erweitern
+        if "expected_return_at" not in loan_column_names:
+            connection.execute(
+                """
+                ALTER TABLE loans
+                ADD COLUMN expected_return_at TEXT
                 """
             )
 
 
 def seed_demo_data() -> None:
-    """Fügt Beispieldaten ein, wenn noch keine Geräte existieren."""
+    """
+    Fügt Beispieldaten ein, wenn noch keine Geräte existieren.
+    """
 
     with database_session() as connection:
         device_count = connection.execute(
