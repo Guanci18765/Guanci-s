@@ -1,39 +1,267 @@
 {% extends "base.html" %}
-{% block title %}{{ device.name }} · Inventur{% endblock %}
-{% block content %}
-<section class="scan-shell">
-    <article class="card scan-card">
-        <div class="device-icon">{{ device.device_type[:1]|upper }}</div>
-        <p class="eyebrow">Gerät erkannt</p>
-        <h1>{{ device.name }}</h1>
-        <p class="muted">{{ device.device_type }} · {{ device.location }}</p>
-        {% if message %}<div class="alert alert-success">{{ message }}</div>{% endif %}
-        {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
 
-        <dl class="device-details">
-            <div><dt>Betriebssystem</dt><dd>{{ device.operating_system or 'Nicht angegeben' }}</dd></div>
-            <div><dt>Letztes Update</dt><dd>{{ device.latest_update_date | date_de }}</dd></div>
-            <div><dt>Setup</dt><dd>{{ 'Abgeschlossen' if device.setup_complete else 'Noch offen' }}</dd></div>
-        </dl>
-
-        {% if device.active_loan_id %}
-            <div class="availability unavailable"><span></span><div><strong>Aktuell ausgeliehen</strong><small>Scanne den Code bei der Rückgabe erneut.</small></div></div>
-            <form method="post" action="/device/{{ device.public_id }}/return">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                <button class="button button-primary button-full" type="submit">Gerät zurückgeben</button>
-            </form>
-        {% elif block_reason %}
-            <div class="availability unavailable"><span></span><div><strong>Nicht ausleihbar</strong><small>{{ block_reason }}</small></div></div>
-        {% else %}
-            <div class="availability available"><span></span><div><strong>Verfügbar</strong><small>Das Gerät kann jetzt ausgeliehen werden.</small></div></div>
-            <form method="post" action="/device/{{ device.public_id }}/borrow" class="stacked-form">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                <label>Dein vollständiger Name<input name="borrower_name" minlength="2" maxlength="100" autocomplete="name" placeholder="Vorname Nachname" required></label>
-                <button class="button button-primary button-full" type="submit">Verbindlich ausleihen</button>
-            </form>
-        {% endif %}
-        <p class="privacy-note">Auf dieser öffentlichen Seite wird der Name des aktuellen Benutzers nicht angezeigt.</p>
-    </article>
-</section>
+{% block title %}
+    {{ device.name }} · Inventur
 {% endblock %}
 
+
+{% block content %}
+
+<section class="scan-shell">
+
+    <article class="card scan-card">
+
+        <div class="device-icon">
+            {{ device.device_type[:1] | upper }}
+        </div>
+
+
+        <p class="eyebrow">
+            Gerät erkannt
+        </p>
+
+
+        <h1>
+            {{ device.name }}
+        </h1>
+
+
+        <p class="muted">
+            {{ device.device_type }} · {{ device.location }}
+        </p>
+
+
+        {% if message %}
+
+            <div class="alert alert-success">
+                {{ message }}
+            </div>
+
+        {% endif %}
+
+
+        {% if error %}
+
+            <div class="alert alert-error">
+                {{ error }}
+            </div>
+
+        {% endif %}
+
+
+        <dl class="device-details">
+
+            <div>
+
+                <dt>
+                    Betriebssystem
+                </dt>
+
+                <dd>
+                    {{
+                        device.operating_system
+                        or 'Nicht angegeben'
+                    }}
+                </dd>
+
+            </div>
+
+
+            <div>
+
+                <dt>
+                    Letztes Update
+                </dt>
+
+                <dd>
+                    {{
+                        device.latest_update_date
+                        | date_de
+                    }}
+                </dd>
+
+            </div>
+
+
+            <div>
+
+                <dt>
+                    Setup
+                </dt>
+
+                <dd>
+                    {{
+                        'Abgeschlossen'
+                        if device.setup_complete
+                        else 'Noch offen'
+                    }}
+                </dd>
+
+            </div>
+
+        </dl>
+
+
+        {% if device.active_loan_id %}
+
+            <div class="availability unavailable">
+
+                <span></span>
+
+                <div>
+
+                    <strong>
+                        Aktuell ausgeliehen
+                    </strong>
+
+                    {% if device.active_expected_return_at %}
+
+                        <small>
+                            Voraussichtliche Rückgabe:
+                            {{
+                                device.active_expected_return_at
+                                | date_de
+                            }}
+                        </small>
+
+                    {% else %}
+
+                        <small>
+                            Scanne den Code bei der Rückgabe erneut.
+                        </small>
+
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+
+            <form
+                method="post"
+                action="/device/{{ device.public_id }}/return"
+            >
+
+                <input
+                    type="hidden"
+                    name="csrf_token"
+                    value="{{ csrf_token }}"
+                >
+
+
+                <button
+                    class="button button-primary button-full"
+                    type="submit"
+                >
+                    Gerät zurückgeben
+                </button>
+
+            </form>
+
+
+        {% elif block_reason %}
+
+            <div class="availability unavailable">
+
+                <span></span>
+
+                <div>
+
+                    <strong>
+                        Nicht ausleihbar
+                    </strong>
+
+                    <small>
+                        {{ block_reason }}
+                    </small>
+
+                </div>
+
+            </div>
+
+
+        {% else %}
+
+            <div class="availability available">
+
+                <span></span>
+
+                <div>
+
+                    <strong>
+                        Verfügbar
+                    </strong>
+
+                    <small>
+                        Das Gerät kann jetzt ausgeliehen werden.
+                    </small>
+
+                </div>
+
+            </div>
+
+
+            <form
+                method="post"
+                action="/device/{{ device.public_id }}/borrow"
+                class="stacked-form"
+            >
+
+                <input
+                    type="hidden"
+                    name="csrf_token"
+                    value="{{ csrf_token }}"
+                >
+
+
+                <label>
+
+                    Dein vollständiger Name
+
+                    <input
+                        name="borrower_name"
+                        minlength="2"
+                        maxlength="100"
+                        autocomplete="name"
+                        placeholder="Vorname Nachname"
+                        required
+                    >
+
+                </label>
+
+
+                <label>
+
+                    Voraussichtliche Rückgabe
+
+                    <input
+                        type="date"
+                        name="expected_return_at"
+                        required
+                    >
+
+                </label>
+
+
+                <button
+                    class="button button-primary button-full"
+                    type="submit"
+                >
+                    Verbindlich ausleihen
+                </button>
+
+            </form>
+
+        {% endif %}
+
+
+        <p class="privacy-note">
+            Auf dieser öffentlichen Seite wird der Name
+            des aktuellen Benutzers nicht angezeigt.
+        </p>
+
+    </article>
+
+</section>
+
+{% endblock %}
