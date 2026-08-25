@@ -13,13 +13,18 @@ PROJECT_DIR = Path(__file__).resolve().parent.parent
 DATABASE_PATH = Path(
     os.getenv(
         "DATABASE_PATH",
-        PROJECT_DIR / "inventory.db",
+        str(PROJECT_DIR / "inventory.db"),
     )
 )
 
 
 def get_connection() -> sqlite3.Connection:
-    """Öffnet eine Verbindung zur SQLite-Datenbank."""
+    """
+    Öffnet eine Verbindung zur SQLite-Datenbank.
+
+    Der Aufrufer muss die Verbindung anschließend
+    wieder schließen.
+    """
 
     connection = sqlite3.connect(
         DATABASE_PATH,
@@ -27,8 +32,14 @@ def get_connection() -> sqlite3.Connection:
     )
 
     connection.row_factory = sqlite3.Row
-    connection.execute("PRAGMA foreign_keys = ON")
-    connection.execute("PRAGMA busy_timeout = 5000")
+
+    connection.execute(
+        "PRAGMA foreign_keys = ON"
+    )
+
+    connection.execute(
+        "PRAGMA busy_timeout = 5000"
+    )
 
     return connection
 
@@ -38,14 +49,9 @@ def database_session() -> Iterator[sqlite3.Connection]:
     """
     Öffnet eine Datenbankverbindung.
 
-    Bei Erfolg:
-        Änderungen werden gespeichert.
-
-    Bei einem Fehler:
-        Änderungen werden zurückgesetzt.
-
-    Am Ende:
-        Verbindung wird immer geschlossen.
+    Bei Erfolg werden Änderungen gespeichert.
+    Bei einem Fehler werden Änderungen zurückgesetzt.
+    Die Verbindung wird immer geschlossen.
     """
 
     connection = get_connection()
@@ -62,12 +68,28 @@ def database_session() -> Iterator[sqlite3.Connection]:
         connection.close()
 
 
+def get_column_names(
+    connection: sqlite3.Connection,
+    table_name: str,
+) -> set[str]:
+    """
+    Gibt die Namen aller Spalten einer Tabelle zurück.
+    """
+
+    columns = connection.execute(
+        f"PRAGMA table_info({table_name})"
+    ).fetchall()
+
+    return {
+        column["name"]
+        for column in columns
+    }
+
+
 def initialize_database() -> None:
     """
-    Erstellt die benötigten Tabellen.
-
-    Bereits vorhandene Tabellen werden bei Bedarf
-    um neue Spalten erweitert.
+    Erstellt die Tabellen und ergänzt fehlende Spalten
+    in einer bereits vorhandenen Datenbank.
     """
 
     with database_session() as connection:
@@ -108,7 +130,11 @@ def initialize_database() -> None:
                     ),
 
                 created_at TEXT NOT NULL
-                    DEFAULT CURRENT_TIMESTAMP
+                    DEFAULT CURRENT_TIMESTAMP,
+
+                deleted_at TEXT,
+
+                deletion_reason TEXT
             );
 
 
@@ -124,40 +150,28 @@ def initialize_database() -> None:
 
                 expected_return_at TEXT,
 
+                is_permanent INTEGER NOT NULL DEFAULT 0
+                    CHECK (
+                        is_permanent IN (0, 1)
+                    ),
+
                 returned_at TEXT,
+
+                overdue_notification_sent_at TEXT,
 
                 FOREIGN KEY (device_id)
                     REFERENCES devices(id)
                     ON DELETE RESTRICT
             );
-
-
-            CREATE UNIQUE INDEX IF NOT EXISTS
-                one_active_loan_per_device
-            ON loans(device_id)
-            WHERE returned_at IS NULL;
-
-
-            CREATE INDEX IF NOT EXISTS
-                loans_device_id_idx
-            ON loans(device_id);
             """
         )
 
-        # Spalten der bestehenden devices-Tabelle abfragen
-        device_columns = connection.execute(
-            """
-            PRAGMA table_info(devices)
-            """
-        ).fetchall()
+        device_columns = get_column_names(
+            connection,
+            "devices",
+        )
 
-        device_column_names = {
-            column["name"]
-            for column in device_columns
-        }
-
-        # Ältere devices-Tabelle um is_active erweitern
-        if "is_active" not in device_column_names:
+        if "is_active" not in device_columns:
             connection.execute(
                 """
                 ALTER TABLE devices
@@ -168,20 +182,28 @@ def initialize_database() -> None:
                 """
             )
 
-        # Spalten der bestehenden loans-Tabelle abfragen
-        loan_columns = connection.execute(
-            """
-            PRAGMA table_info(loans)
-            """
-        ).fetchall()
+        if "deleted_at" not in device_columns:
+            connection.execute(
+                """
+                ALTER TABLE devices
+                ADD COLUMN deleted_at TEXT
+                """
+            )
 
-        loan_column_names = {
-            column["name"]
-            for column in loan_columns
-        }
+        if "deletion_reason" not in device_columns:
+            connection.execute(
+                """
+                ALTER TABLE devices
+                ADD COLUMN deletion_reason TEXT
+                """
+            )
 
-        # Ältere loans-Tabelle um expected_return_at erweitern
-        if "expected_return_at" not in loan_column_names:
+        loan_columns = get_column_names(
+            connection,
+            "loans",
+        )
+
+        if "expected_return_at" not in loan_columns:
             connection.execute(
                 """
                 ALTER TABLE loans
@@ -189,10 +211,58 @@ def initialize_database() -> None:
                 """
             )
 
+        if "is_permanent" not in loan_columns:
+            connection.execute(
+                """
+                ALTER TABLE loans
+                ADD COLUMN is_permanent INTEGER NOT NULL DEFAULT 0
+                    CHECK (
+                        is_permanent IN (0, 1)
+                    )
+                """
+            )
+
+        if (
+            "overdue_notification_sent_at"
+            not in loan_columns
+        ):
+            connection.execute(
+                """
+                ALTER TABLE loans
+                ADD COLUMN overdue_notification_sent_at TEXT
+                """
+            )
+
+        connection.executescript(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS
+                one_active_loan_per_device
+            ON loans(device_id)
+            WHERE returned_at IS NULL;
+
+
+            CREATE INDEX IF NOT EXISTS
+                loans_device_id_idx
+            ON loans(device_id);
+
+
+            CREATE INDEX IF NOT EXISTS
+                active_loans_expected_return_idx
+            ON loans(expected_return_at)
+            WHERE returned_at IS NULL;
+
+
+            CREATE INDEX IF NOT EXISTS
+                devices_deleted_at_idx
+            ON devices(deleted_at);
+            """
+        )
+
 
 def seed_demo_data() -> None:
     """
-    Fügt Beispieldaten ein, wenn noch keine Geräte existieren.
+    Fügt Beispieldaten nur ein, wenn SEED_DEMO_DATA=true
+    gesetzt wurde und noch keine Geräte vorhanden sind.
     """
 
     with database_session() as connection:

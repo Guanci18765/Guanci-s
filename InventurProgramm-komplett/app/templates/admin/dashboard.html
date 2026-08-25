@@ -1,10 +1,13 @@
 {% extends "base.html" %}
 
+
 {% block title %}
     Geräteübersicht · Inventur
 {% endblock %}
 
+
 {% block header_actions %}
+
 <form method="post" action="/admin/logout">
 
     <input
@@ -21,22 +24,135 @@
     </button>
 
 </form>
+
 {% endblock %}
 
 
 {% block content %}
 
+<style>
+    .dashboard-list-navigation {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 24px;
+        padding: 10px;
+        border: 1px solid #e4e9f1;
+        border-radius: 16px;
+        background: #ffffff;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+    }
+
+    .dashboard-list-button {
+        min-height: 44px;
+        padding: 0 16px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        border: 1px solid transparent;
+        border-radius: 11px;
+        background: transparent;
+        color: #475467;
+        font: inherit;
+        font-weight: 750;
+        cursor: pointer;
+    }
+
+    .dashboard-list-button:hover {
+        background: #f2f5fa;
+        color: #255ee8;
+    }
+
+    .dashboard-list-button.is-active {
+        background: #255ee8;
+        color: #ffffff;
+        box-shadow: 0 7px 16px rgba(37, 94, 232, 0.2);
+    }
+
+    .dashboard-list-count {
+        min-width: 25px;
+        min-height: 25px;
+        padding: 3px 7px;
+        display: inline-grid;
+        place-items: center;
+        border-radius: 999px;
+        background: rgba(102, 112, 133, 0.13);
+        font-size: 0.73rem;
+    }
+
+    .dashboard-list-button.is-active
+    .dashboard-list-count {
+        background: rgba(255, 255, 255, 0.2);
+    }
+
+    .dashboard-list-panel[hidden] {
+        display: none;
+    }
+
+    .table-sort-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        font-weight: 800;
+        letter-spacing: inherit;
+        text-transform: inherit;
+        cursor: pointer;
+    }
+
+    .table-sort-button:hover,
+    .table-sort-button.is-active {
+        color: #255ee8;
+    }
+
+    .sort-indicator {
+        font-size: 0.85rem;
+        line-height: 1;
+    }
+
+    .combined-sort-heading {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        white-space: nowrap;
+    }
+
+    @media (max-width: 600px) {
+        .dashboard-list-navigation {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .dashboard-list-button {
+            width: 100%;
+        }
+    }
+</style>
+
+
 <section class="hero-row">
 
     <div>
-        <p class="eyebrow">Admin Dashboard</p>
 
-        <h1>Geräte im Blick.</h1>
+        <p class="eyebrow">
+            Admin Dashboard
+        </p>
+
+        <h1>
+            Geräte im Blick.
+        </h1>
 
         <p class="muted">
             Verfügbarkeit, Zustand und Ausleihen
             an einem Ort.
         </p>
+
     </div>
 
     <a
@@ -52,38 +168,213 @@
 <section class="stats-grid">
 
     <article class="stat-card">
-        <span>Alle Geräte</span>
-        <strong>{{ counts.all }}</strong>
+
+        <span>
+            Alle Geräte
+        </span>
+
+        <strong>
+            {{ counts.all }}
+        </strong>
+
+        <button
+            class="stat-filter-button is-active"
+            type="button"
+            data-device-filter="all"
+            aria-pressed="true"
+        >
+            Alle anzeigen
+        </button>
+
     </article>
+
 
     <article class="stat-card success">
-        <span>Verfügbar</span>
-        <strong>{{ counts.available }}</strong>
+
+        <span>
+            Verfügbar
+        </span>
+
+        <strong>
+            {{ counts.available }}
+        </strong>
+
+        <button
+            class="stat-filter-button"
+            type="button"
+            data-device-filter="available"
+            aria-pressed="false"
+        >
+            Verfügbare anzeigen
+        </button>
+
     </article>
+
 
     <article class="stat-card info">
-        <span>Ausgeliehen</span>
-        <strong>{{ counts.loaned }}</strong>
+
+        <span>
+            Ausgeliehen
+        </span>
+
+        <strong>
+            {{ counts.loaned }}
+        </strong>
+
+        <button
+            class="stat-filter-button"
+            type="button"
+            data-device-filter="loaned"
+            aria-pressed="false"
+        >
+            Ausgeliehene anzeigen
+        </button>
+
     </article>
 
+
     <article class="stat-card warning">
-        <span>Gesperrt</span>
-        <strong>{{ counts.blocked }}</strong>
+
+        <span>
+            Gesperrt
+        </span>
+
+        <strong>
+            {{ counts.blocked }}
+        </strong>
+
+        <button
+            class="stat-filter-button"
+            type="button"
+            data-device-filter="blocked"
+            aria-pressed="false"
+        >
+            Gesperrte anzeigen
+        </button>
+
     </article>
 
 </section>
 
 
-<section class="card table-card">
+<nav
+    class="dashboard-list-navigation"
+    aria-label="Inventarlisten"
+>
+
+    <button
+        class="dashboard-list-button is-active"
+        type="button"
+        data-list-target="device-list-panel"
+        data-list-hash="bestand"
+        aria-controls="device-list-panel"
+        aria-pressed="true"
+    >
+        Bestand
+
+        <span class="dashboard-list-count">
+            {{ counts.all }}
+        </span>
+    </button>
+
+
+    <button
+        class="dashboard-list-button"
+        type="button"
+        data-list-target="overdue-list-panel"
+        data-list-hash="ueberfaellig"
+        aria-controls="overdue-list-panel"
+        aria-pressed="false"
+    >
+        Überfällig
+
+        <span class="dashboard-list-count">
+            {{ counts.overdue }}
+        </span>
+    </button>
+
+
+    <button
+        class="dashboard-list-button"
+        type="button"
+        data-list-target="history-list-panel"
+        data-list-hash="verlauf"
+        aria-controls="history-list-panel"
+        aria-pressed="false"
+    >
+        Verlauf
+
+        <span class="dashboard-list-count">
+            {{ loans | length }}
+        </span>
+    </button>
+
+
+    <button
+        class="dashboard-list-button"
+        type="button"
+        data-list-target="archive-list-panel"
+        data-list-hash="archiv"
+        aria-controls="archive-list-panel"
+        aria-pressed="false"
+    >
+        Archiv
+
+        <span class="dashboard-list-count">
+            {{ counts.deleted }}
+        </span>
+    </button>
+
+</nav>
+
+
+<section
+    class="card table-card dashboard-list-panel"
+    id="device-list-panel"
+>
 
     <div class="section-heading">
 
         <div>
-            <p class="eyebrow">Bestand</p>
-            <h2>Geräteübersicht</h2>
+
+            <p class="eyebrow">
+                Bestand
+            </p>
+
+            <h2>
+                Geräteübersicht
+            </h2>
+
         </div>
 
-        <span class="muted">
+
+        <label>
+
+            Gerätetyp filtern
+
+            <select id="device-type-filter">
+
+                <option value="all">
+                    Alle Gerätetypen
+                </option>
+
+                {% for device_type in device_types %}
+
+                    <option value="{{ device_type }}">
+                        {{ device_type }}
+                    </option>
+
+                {% endfor %}
+
+            </select>
+
+        </label>
+
+
+        <span
+            class="muted"
+            id="visible-device-count"
+        >
             {{ devices | length }} Einträge
         </span>
 
@@ -95,44 +386,205 @@
         <table>
 
             <thead>
+
                 <tr>
-                    <th>Gerät</th>
-                    <th>Status</th>
-                    <th>Momentaner User</th>
-                    <th>System / Update</th>
-                    <th>Setup</th>
-                    <th>Standort</th>
+
+                    <th>
+
+                        <button
+                            class="table-sort-button"
+                            type="button"
+                            data-sort-key="name"
+                        >
+                            Gerät
+
+                            <span class="sort-indicator">
+                                ↕
+                            </span>
+                        </button>
+
+                    </th>
+
+
+                    <th>
+
+                        <button
+                            class="table-sort-button"
+                            type="button"
+                            data-sort-key="status"
+                        >
+                            Status
+
+                            <span class="sort-indicator">
+                                ↕
+                            </span>
+                        </button>
+
+                    </th>
+
+
+                    <th>
+
+                        <button
+                            class="table-sort-button"
+                            type="button"
+                            data-sort-key="user"
+                        >
+                            Momentaner User
+
+                            <span class="sort-indicator">
+                                ↕
+                            </span>
+                        </button>
+
+                    </th>
+
+
+                    <th>
+
+                        <div class="combined-sort-heading">
+
+                            <button
+                                class="table-sort-button"
+                                type="button"
+                                data-sort-key="system"
+                            >
+                                System
+
+                                <span class="sort-indicator">
+                                    ↕
+                                </span>
+                            </button>
+
+                            <span>/</span>
+
+                            <button
+                                class="table-sort-button"
+                                type="button"
+                                data-sort-key="update"
+                            >
+                                Update
+
+                                <span class="sort-indicator">
+                                    ↕
+                                </span>
+                            </button>
+
+                        </div>
+
+                    </th>
+
+
+                    <th>
+
+                        <button
+                            class="table-sort-button"
+                            type="button"
+                            data-sort-key="setup"
+                        >
+                            Setup
+
+                            <span class="sort-indicator">
+                                ↕
+                            </span>
+                        </button>
+
+                    </th>
+
+
+                    <th>
+                        Standort
+                    </th>
+
                     <th></th>
+
                 </tr>
+
             </thead>
 
-            <tbody>
+
+            <tbody id="device-table-body">
 
             {% for device in devices %}
 
-                <tr>
+                {% if device.active_borrower %}
+
+                    {% set filter_status = "loaned" %}
+                    {% set sort_status = "Ausgeliehen" %}
+
+                {% elif not device.is_active %}
+
+                    {% set filter_status = "blocked" %}
+                    {% set sort_status = "Inaktiv" %}
+
+                {% elif (
+                    device.condition == "ready"
+                    and device.setup_complete
+                ) %}
+
+                    {% set filter_status = "available" %}
+                    {% set sort_status = "Verfügbar" %}
+
+                {% elif device.condition == "service" %}
+
+                    {% set filter_status = "blocked" %}
+                    {% set sort_status = "Service" %}
+
+                {% elif device.condition == "defective" %}
+
+                    {% set filter_status = "blocked" %}
+                    {% set sort_status = "Defekt" %}
+
+                {% else %}
+
+                    {% set filter_status = "blocked" %}
+                    {% set sort_status = "Setup offen" %}
+
+                {% endif %}
+
+
+                <tr
+                    data-device-status="{{ filter_status }}"
+                    data-device-type="{{ device.device_type }}"
+                    data-sort-name="{{ device.name }}"
+                    data-sort-status="{{ sort_status }}"
+                    data-sort-user="{{ device.active_borrower or '' }}"
+                    data-sort-system="{{ device.operating_system or '' }}"
+                    data-sort-update="{{ device.latest_update_date or '' }}"
+                    data-sort-setup="{{ 1 if device.setup_complete else 0 }}"
+                >
 
                     <td>
-                        <strong>{{ device.name }}</strong>
-                        <small>{{ device.device_type }}</small>
+
+                        <strong>
+                            {{ device.name }}
+                        </strong>
+
+                        <small>
+                            {{ device.device_type }}
+                        </small>
+
                     </td>
 
 
                     <td>
-                        {% if not device.is_active %}
 
-                            <span class="badge badge-gray">
-                                Inaktiv
-                            </span>
-
-                        {% elif device.active_borrower %}
+                        {% if device.active_borrower %}
 
                             <span class="badge badge-blue">
                                 Ausgeliehen
                             </span>
 
-                        {% elif device.condition == "ready"
-                            and device.setup_complete %}
+                        {% elif not device.is_active %}
+
+                            <span class="badge badge-gray">
+                                Inaktiv
+                            </span>
+
+                        {% elif (
+                            device.condition == "ready"
+                            and device.setup_complete
+                        ) %}
 
                             <span class="badge badge-green">
                                 Verfügbar
@@ -157,10 +609,12 @@
                             </span>
 
                         {% endif %}
+
                     </td>
 
 
                     <td>
+
                         {% if device.active_borrower %}
 
                             <strong>
@@ -168,29 +622,64 @@
                             </strong>
 
                             <small>
-                                seit {{ device.checked_out_at }}
+                                seit
+                                {{
+                                    device.checked_out_at
+                                    | date_de
+                                }}
                             </small>
+
+
+                            {% if device.active_is_permanent %}
+
+                                <small>
+                                    Dauerhafte Ausleihe
+                                </small>
+
+                            {% elif device.active_expected_return_at %}
+
+                                <small>
+                                    Rückgabe:
+                                    {{
+                                        device.active_expected_return_at
+                                        | date_de
+                                    }}
+                                </small>
+
+                            {% endif %}
 
                         {% else %}
 
-                            <span class="muted">—</span>
+                            <span class="muted">
+                                —
+                            </span>
 
                         {% endif %}
+
                     </td>
 
 
                     <td>
+
                         {{ device.operating_system or "—" }}
 
                         <small>
                             Update:
-                            {{ device.latest_update_date | date_de }}
+                            {{
+                                device.latest_update_date
+                                | date_de
+                            }}
                         </small>
+
                     </td>
 
 
                     <td>
-                        {{ "Ja" if device.setup_complete else "Nein" }}
+                        {{
+                            "Ja"
+                            if device.setup_complete
+                            else "Nein"
+                        }}
                     </td>
 
 
@@ -221,12 +710,190 @@
             {% else %}
 
                 <tr>
+
                     <td
                         colspan="7"
                         class="empty-state"
                     >
                         Noch keine Geräte vorhanden.
                     </td>
+
+                </tr>
+
+            {% endfor %}
+
+
+                <tr
+                    id="no-filter-results"
+                    hidden
+                >
+
+                    <td
+                        colspan="7"
+                        class="empty-state"
+                    >
+                        Für diesen Filter wurden keine
+                        Geräte gefunden.
+                    </td>
+
+                </tr>
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</section>
+
+
+<section
+    class="card table-card dashboard-list-panel"
+    id="overdue-list-panel"
+    hidden
+>
+
+    <div class="section-heading">
+
+        <div>
+
+            <p class="eyebrow">
+                Fristüberschreitung
+            </p>
+
+            <h2>
+                Überfällige Ausleihen
+            </h2>
+
+        </div>
+
+
+        <span class="muted">
+
+            {% if counts.overdue == 1 %}
+
+                1 überfällige Ausleihe
+
+            {% else %}
+
+                {{ counts.overdue }}
+                überfällige Ausleihen
+
+            {% endif %}
+
+        </span>
+
+    </div>
+
+
+    <div class="table-wrap">
+
+        <table>
+
+            <thead>
+
+                <tr>
+                    <th>Gerät</th>
+                    <th>Benutzer</th>
+                    <th>Ausgeliehen</th>
+                    <th>Rückgabe geplant</th>
+                    <th>Überfällig</th>
+                    <th></th>
+                </tr>
+
+            </thead>
+
+
+            <tbody>
+
+            {% for loan in overdue_loans %}
+
+                <tr>
+
+                    <td>
+
+                        <strong>
+                            {{ loan.device_name }}
+                        </strong>
+
+                        <small>
+                            {{ loan.device_type }}
+                        </small>
+
+                    </td>
+
+
+                    <td>
+                        {{ loan.borrower_name }}
+                    </td>
+
+
+                    <td>
+                        {{
+                            loan.checked_out_at
+                            | date_de
+                        }}
+                    </td>
+
+
+                    <td>
+
+                        <strong>
+                            {{
+                                loan.expected_return_at
+                                | date_de
+                            }}
+                        </strong>
+
+                    </td>
+
+
+                    <td>
+
+                        <span class="badge badge-red">
+
+                            {% if loan.overdue_days == 1 %}
+
+                                Seit 1 Tag
+
+                            {% else %}
+
+                                Seit
+                                {{ loan.overdue_days }}
+                                Tagen
+
+                            {% endif %}
+
+                        </span>
+
+                    </td>
+
+
+                    <td class="actions">
+
+                        <a
+                            href="/device/{{ loan.public_id }}"
+                            target="_blank"
+                        >
+                            Scan-Seite
+                        </a>
+
+                    </td>
+
+                </tr>
+
+            {% else %}
+
+                <tr>
+
+                    <td
+                        colspan="6"
+                        class="empty-state"
+                    >
+                        Momentan sind keine Ausleihen
+                        überfällig.
+                    </td>
+
                 </tr>
 
             {% endfor %}
@@ -240,13 +907,24 @@
 </section>
 
 
-<section class="card table-card">
+<section
+    class="card table-card dashboard-list-panel"
+    id="history-list-panel"
+    hidden
+>
 
     <div class="section-heading">
 
         <div>
-            <p class="eyebrow">Verlauf</p>
-            <h2>Letzte Ausleihen</h2>
+
+            <p class="eyebrow">
+                Verlauf
+            </p>
+
+            <h2>
+                Letzte Ausleihen
+            </h2>
+
         </div>
 
     </div>
@@ -257,13 +935,17 @@
         <table>
 
             <thead>
+
                 <tr>
                     <th>Gerät</th>
                     <th>Benutzer</th>
                     <th>Ausgeliehen</th>
+                    <th>Voraussichtliche Rückgabe</th>
                     <th>Zurückgegeben</th>
                 </tr>
+
             </thead>
+
 
             <tbody>
 
@@ -272,21 +954,66 @@
                 <tr>
 
                     <td>
+
                         <strong>
                             {{ loan.device_name }}
                         </strong>
+
                     </td>
+
 
                     <td>
                         {{ loan.borrower_name }}
                     </td>
 
-                    <td>
-                        {{ loan.checked_out_at }}
-                    </td>
 
                     <td>
-                        {{ loan.returned_at or "Noch aktiv" }}
+                        {{
+                            loan.checked_out_at
+                            | date_de
+                        }}
+                    </td>
+
+
+                    <td>
+
+                        {% if loan.is_permanent %}
+
+                            <span class="badge badge-blue">
+                                Dauerhaft
+                            </span>
+
+                        {% elif loan.expected_return_at %}
+
+                            {{
+                                loan.expected_return_at
+                                | date_de
+                            }}
+
+                        {% else %}
+
+                            —
+
+                        {% endif %}
+
+                    </td>
+
+
+                    <td>
+
+                        {% if loan.returned_at %}
+
+                            {{
+                                loan.returned_at
+                                | date_de
+                            }}
+
+                        {% else %}
+
+                            Noch aktiv
+
+                        {% endif %}
+
                     </td>
 
                 </tr>
@@ -294,12 +1021,14 @@
             {% else %}
 
                 <tr>
+
                     <td
-                        colspan="4"
+                        colspan="5"
                         class="empty-state"
                     >
                         Noch keine Ausleihen vorhanden.
                     </td>
+
                 </tr>
 
             {% endfor %}
@@ -311,5 +1040,515 @@
     </div>
 
 </section>
+
+
+<section
+    class="card table-card dashboard-list-panel"
+    id="archive-list-panel"
+    hidden
+>
+
+    <div class="section-heading">
+
+        <div>
+
+            <p class="eyebrow">
+                Archiv
+            </p>
+
+            <h2>
+                Gelöschte Geräte
+            </h2>
+
+        </div>
+
+
+        <span class="muted">
+
+            {% if counts.deleted == 1 %}
+
+                1 Eintrag
+
+            {% else %}
+
+                {{ counts.deleted }} Einträge
+
+            {% endif %}
+
+        </span>
+
+    </div>
+
+
+    <div class="table-wrap">
+
+        <table>
+
+            <thead>
+
+                <tr>
+                    <th>Gerät</th>
+                    <th>Gerätetyp</th>
+                    <th>Standort</th>
+                    <th>Gelöscht am</th>
+                    <th>Löschgrund</th>
+                    <th>Ausleihen</th>
+                </tr>
+
+            </thead>
+
+
+            <tbody>
+
+            {% for device in deleted_devices %}
+
+                <tr>
+
+                    <td>
+
+                        <strong>
+                            {{ device.name }}
+                        </strong>
+
+                    </td>
+
+
+                    <td>
+                        {{ device.device_type }}
+                    </td>
+
+
+                    <td>
+                        {{ device.location }}
+                    </td>
+
+
+                    <td>
+                        {{ device.deleted_at_de }}
+                    </td>
+
+
+                    <td>
+                        {{ device.deletion_reason }}
+                    </td>
+
+
+                    <td>
+                        {{ device.loan_count }}
+                    </td>
+
+                </tr>
+
+            {% else %}
+
+                <tr>
+
+                    <td
+                        colspan="6"
+                        class="empty-state"
+                    >
+                        Noch keine gelöschten Geräte
+                        vorhanden.
+                    </td>
+
+                </tr>
+
+            {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</section>
+
+
+<script>
+    document.addEventListener(
+        "DOMContentLoaded",
+        function () {
+            const listButtons =
+                document.querySelectorAll(
+                    "[data-list-target]"
+                );
+
+            const listPanels =
+                document.querySelectorAll(
+                    ".dashboard-list-panel"
+                );
+
+            const tableCard =
+                document.getElementById(
+                    "device-list-panel"
+                );
+
+            const tableBody =
+                document.getElementById(
+                    "device-table-body"
+                );
+
+            const filterButtons =
+                document.querySelectorAll(
+                    "[data-device-filter]"
+                );
+
+            const typeFilter =
+                document.getElementById(
+                    "device-type-filter"
+                );
+
+            const sortButtons =
+                tableCard.querySelectorAll(
+                    "[data-sort-key]"
+                );
+
+            const deviceRows =
+                tableCard.querySelectorAll(
+                    "tr[data-device-status]"
+                );
+
+            const countElement =
+                document.getElementById(
+                    "visible-device-count"
+                );
+
+            const noResultsRow =
+                document.getElementById(
+                    "no-filter-results"
+                );
+
+            let activeStatusFilter = "all";
+            let activeSortKey = null;
+            let activeSortDirection = "ascending";
+
+
+            function showListPanel(
+                panelId,
+                updateHash
+            ) {
+                listPanels.forEach(
+                    function (panel) {
+                        panel.hidden =
+                            panel.id !== panelId;
+                    }
+                );
+
+                listButtons.forEach(
+                    function (button) {
+                        const active =
+                            button.dataset.listTarget
+                            === panelId;
+
+                        button.classList.toggle(
+                            "is-active",
+                            active
+                        );
+
+                        button.setAttribute(
+                            "aria-pressed",
+                            String(active)
+                        );
+                    }
+                );
+
+                if (updateHash) {
+                    const activeButton =
+                        document.querySelector(
+                            `[data-list-target="${panelId}"]`
+                        );
+
+                    if (activeButton) {
+                        window.history.replaceState(
+                            null,
+                            "",
+                            `#${activeButton.dataset.listHash}`
+                        );
+                    }
+                }
+            }
+
+
+            listButtons.forEach(
+                function (button) {
+                    button.addEventListener(
+                        "click",
+                        function () {
+                            showListPanel(
+                                button.dataset.listTarget,
+                                true
+                            );
+                        }
+                    );
+                }
+            );
+
+
+            const hashPanels = {
+                "#bestand": "device-list-panel",
+                "#ueberfaellig": "overdue-list-panel",
+                "#verlauf": "history-list-panel",
+                "#archiv": "archive-list-panel",
+            };
+
+            showListPanel(
+                hashPanels[window.location.hash]
+                    || "device-list-panel",
+                false
+            );
+
+
+            function applyDeviceFilters() {
+                const selectedType =
+                    typeFilter
+                        ? typeFilter.value
+                        : "all";
+
+                let visibleDevices = 0;
+
+                deviceRows.forEach(
+                    function (row) {
+                        const statusMatches =
+                            (
+                                activeStatusFilter === "all"
+                                || row.dataset.deviceStatus
+                                    === activeStatusFilter
+                            );
+
+                        const typeMatches =
+                            (
+                                selectedType === "all"
+                                || row.dataset.deviceType
+                                    === selectedType
+                            );
+
+                        const visible =
+                            statusMatches
+                            && typeMatches;
+
+                        row.hidden =
+                            !visible;
+
+                        if (visible) {
+                            visibleDevices += 1;
+                        }
+                    }
+                );
+
+                const countLabel =
+                    (
+                        visibleDevices === 1
+                        ? "Eintrag"
+                        : "Einträge"
+                    );
+
+                countElement.textContent =
+                    `${visibleDevices} ${countLabel}`;
+
+                noResultsRow.hidden =
+                    visibleDevices !== 0;
+            }
+
+
+            function getSortValue(
+                row,
+                sortKey
+            ) {
+                return row.getAttribute(
+                    `data-sort-${sortKey}`
+                ) || "";
+            }
+
+
+            function compareValues(
+                firstValue,
+                secondValue,
+                direction
+            ) {
+                const firstEmpty =
+                    firstValue.trim() === "";
+
+                const secondEmpty =
+                    secondValue.trim() === "";
+
+                if (firstEmpty && !secondEmpty) {
+                    return 1;
+                }
+
+                if (!firstEmpty && secondEmpty) {
+                    return -1;
+                }
+
+                const comparison =
+                    firstValue.localeCompare(
+                        secondValue,
+                        "de",
+                        {
+                            numeric: true,
+                            sensitivity: "base",
+                        }
+                    );
+
+                return (
+                    direction === "descending"
+                    ? -comparison
+                    : comparison
+                );
+            }
+
+
+            function sortDeviceRows(
+                sortKey,
+                direction
+            ) {
+                const sortedRows =
+                    Array.from(deviceRows);
+
+                sortedRows.sort(
+                    function (firstRow, secondRow) {
+                        return compareValues(
+                            getSortValue(
+                                firstRow,
+                                sortKey
+                            ),
+                            getSortValue(
+                                secondRow,
+                                sortKey
+                            ),
+                            direction
+                        );
+                    }
+                );
+
+                sortedRows.forEach(
+                    function (row) {
+                        tableBody.insertBefore(
+                            row,
+                            noResultsRow
+                        );
+                    }
+                );
+            }
+
+
+            function updateSortButtons(
+                selectedButton
+            ) {
+                sortButtons.forEach(
+                    function (button) {
+                        const indicator =
+                            button.querySelector(
+                                ".sort-indicator"
+                            );
+
+                        const active =
+                            button === selectedButton;
+
+                        button.classList.toggle(
+                            "is-active",
+                            active
+                        );
+
+                        indicator.textContent =
+                            active
+                                ? (
+                                    activeSortDirection
+                                    === "ascending"
+                                    ? "↑"
+                                    : "↓"
+                                )
+                                : "↕";
+                    }
+                );
+            }
+
+
+            sortButtons.forEach(
+                function (button) {
+                    button.addEventListener(
+                        "click",
+                        function () {
+                            const selectedKey =
+                                button.dataset.sortKey;
+
+                            if (
+                                activeSortKey
+                                === selectedKey
+                            ) {
+                                activeSortDirection =
+                                    (
+                                        activeSortDirection
+                                        === "ascending"
+                                        ? "descending"
+                                        : "ascending"
+                                    );
+                            } else {
+                                activeSortKey =
+                                    selectedKey;
+
+                                activeSortDirection =
+                                    "ascending";
+                            }
+
+                            sortDeviceRows(
+                                activeSortKey,
+                                activeSortDirection
+                            );
+
+                            updateSortButtons(
+                                button
+                            );
+                        }
+                    );
+                }
+            );
+
+
+            filterButtons.forEach(
+                function (button) {
+                    button.addEventListener(
+                        "click",
+                        function () {
+                            activeStatusFilter =
+                                button.dataset.deviceFilter;
+
+                            filterButtons.forEach(
+                                function (otherButton) {
+                                    const active =
+                                        otherButton === button;
+
+                                    otherButton.classList.toggle(
+                                        "is-active",
+                                        active
+                                    );
+
+                                    otherButton.setAttribute(
+                                        "aria-pressed",
+                                        String(active)
+                                    );
+                                }
+                            );
+
+                            applyDeviceFilters();
+
+                            showListPanel(
+                                "device-list-panel",
+                                true
+                            );
+                        }
+                    );
+                }
+            );
+
+
+            if (typeFilter) {
+                typeFilter.addEventListener(
+                    "change",
+                    applyDeviceFilters
+                );
+            }
+        }
+    );
+</script>
 
 {% endblock %}

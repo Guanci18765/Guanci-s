@@ -1,21 +1,84 @@
-<!doctype html>
+<!DOCTYPE html>
+
 <html lang="de">
+
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#0b1220">
-    <title>{% block title %}Inventurprogramm{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}">
-</head>
-<body>
-    <header class="site-header">
-        <a class="brand" href="/admin/">
-            <span class="brand-mark">IV</span>
-            <span><strong>Inventur</strong><small>Office Devices</small></span>
-        </a>
-        {% block header_actions %}{% endblock %}
-    </header>
-    <main class="page-shell">{% block content %}{% endblock %}</main>
-</body>
-</html>
 
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1"
+    >
+
+    <meta
+        name="theme-color"
+        content="#0b1220"
+    >
+
+    <title>
+        {% block title %}
+            Inventur
+        {% endblock %}
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="/static/styles.css"
+    >
+</head>
+
+
+<body>
+
+    <header class="site-header">
+
+        <nav class="portal-navigation">
+
+            <a
+                class="portal-link"
+                href="/admin/"
+            >
+                <span class="brand-mark">
+                    Admin
+                </span>
+
+                <span class="portal-text">
+                    
+                </span>
+            </a>
+
+
+            <a
+                class="portal-link portal-link-kiosk"
+                href="/kiosk/"
+            >
+                <span class="brand-mark kiosk-mark">
+                    Kiosk
+                </span>
+
+                <span class="portal-text">
+                    
+                </span>
+            </a>
+
+        </nav>
+
+
+        <div class="header-actions">
+            {% block header_actions %}
+            {% endblock %}
+        </div>
+
+    </header>
+
+
+    <main class="page-shell">
+
+        {% block content %}
+        {% endblock %}
+
+    </main>
+
+</body>
+
+</html>

@@ -1,63 +1,91 @@
+from __future__ import annotations
+
 from datetime import datetime
 
 
-def format_date_de(value: str | None) -> str:
-    """Formatiert ein Datum für die Anzeige als TT.MM.JJJJ."""
+def format_date_de(
+    value: str | None,
+) -> str:
+    """
+    Formatiert ein gespeichertes ISO-Datum für die
+    deutsche Anzeige.
+
+    Beispiele:
+
+    2026-08-25
+    wird zu:
+    25.08.2026
+
+    2026-08-25 14:35:20
+    wird zu:
+    25.08.2026 14:35
+    """
 
     if not value:
         return "Unbekannt"
 
-    value = str(value).strip()
+    cleaned_value = value.strip()
 
-    possible_formats = (
-        "%Y-%m-%d",
-        "%d.%m.%Y",
+    try:
+        parsed_value = datetime.fromisoformat(
+            cleaned_value.replace(
+                "Z",
+                "+00:00",
+            )
+        )
+
+    except ValueError:
+        return cleaned_value
+
+    contains_time = (
+        " " in cleaned_value
+        or "T" in cleaned_value
     )
 
-    for date_format in possible_formats:
-        try:
-            date = datetime.strptime(
-                value,
-                date_format,
-            )
+    if contains_time:
+        return parsed_value.strftime(
+            "%d.%m.%Y %H:%M"
+        )
 
-            return date.strftime("%d.%m.%Y")
-
-        except ValueError:
-            continue
-
-    return value
+    return parsed_value.strftime(
+        "%d.%m.%Y"
+    )
 
 
-def parse_date_de(value: str | None) -> str | None:
+def parse_date_de(
+    value: str | None,
+) -> str | None:
     """
-    Prüft die Benutzereingabe und wandelt sie
-    für SQLite in JJJJ-MM-TT um.
+    Wandelt ein deutsches Eingabedatum in das
+    ISO-Format für SQLite um.
+
+    Beispiel:
+
+    25.08.2026
+    wird zu:
+    2026-08-25
     """
 
     if not value:
         return None
 
-    value = str(value).strip()
+    cleaned_value = value.strip()
 
-    possible_formats = (
-        "%d.%m.%Y",
-        "%Y-%m-%d",
-    )
+    if not cleaned_value:
+        return None
 
-    for date_format in possible_formats:
-        try:
-            date = datetime.strptime(
-                value,
-                date_format,
-            )
+    try:
+        parsed_value = datetime.strptime(
+            cleaned_value,
+            "%d.%m.%Y",
+        )
 
-            return date.strftime("%Y-%m-%d")
+    except ValueError as error:
+        raise ValueError(
+            "Das Datum muss im Format "
+            "TT.MM.JJJJ eingegeben werden."
+        ) from error
 
-        except ValueError:
-            continue
-
-    raise ValueError(
-        "Das Update-Datum muss im Format "
-        "TT.MM.JJJJ angegeben werden."
+    return parsed_value.strftime(
+        "%Y-%m-%d"
     )

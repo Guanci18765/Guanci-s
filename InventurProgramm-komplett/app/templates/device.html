@@ -1,11 +1,45 @@
 {% extends "base.html" %}
 
+
 {% block title %}
     {{ device.name }} · Inventur
 {% endblock %}
 
 
 {% block content %}
+
+<style>
+    .permanent-loan-option {
+        display: grid;
+        grid-template-columns: 22px 1fr;
+        align-items: start;
+        gap: 12px;
+        padding: 14px;
+        border: 1px solid #d5dce7;
+        border-radius: 11px;
+        background: #f8fafc;
+        cursor: pointer;
+    }
+
+    .permanent-loan-option input {
+        width: 20px;
+        height: 20px;
+        min-height: 20px;
+        margin: 1px 0 0;
+    }
+
+    .permanent-loan-option strong,
+    .permanent-loan-option small {
+        display: block;
+    }
+
+    .permanent-loan-option small {
+        margin-top: 4px;
+        color: #667085;
+        font-weight: 400;
+    }
+</style>
+
 
 <section class="scan-shell">
 
@@ -60,7 +94,7 @@
                 <dd>
                     {{
                         device.operating_system
-                        or 'Nicht angegeben'
+                        or "Nicht angegeben"
                     }}
                 </dd>
 
@@ -91,9 +125,9 @@
 
                 <dd>
                     {{
-                        'Abgeschlossen'
+                        "Abgeschlossen"
                         if device.setup_complete
-                        else 'Noch offen'
+                        else "Noch offen"
                     }}
                 </dd>
 
@@ -114,7 +148,15 @@
                         Aktuell ausgeliehen
                     </strong>
 
-                    {% if device.active_expected_return_at %}
+
+                    {% if device.active_is_permanent %}
+
+                        <small>
+                            Dauerhafte Ausleihe –
+                            kein Rückgabedatum festgelegt.
+                        </small>
+
+                    {% elif device.active_expected_return_at %}
 
                         <small>
                             Voraussichtliche Rückgabe:
@@ -127,7 +169,7 @@
                     {% else %}
 
                         <small>
-                            Scanne den Code bei der Rückgabe erneut.
+                            Es wurde kein Rückgabedatum gespeichert.
                         </small>
 
                     {% endif %}
@@ -137,26 +179,50 @@
             </div>
 
 
-            <form
-                method="post"
-                action="/device/{{ device.public_id }}/return"
-            >
+            {% if can_return %}
 
-                <input
-                    type="hidden"
-                    name="csrf_token"
-                    value="{{ csrf_token }}"
+                <form
+                    method="post"
+                    action="/device/{{ device.public_id }}/return"
                 >
 
+                    <input
+                        type="hidden"
+                        name="csrf_token"
+                        value="{{ csrf_token }}"
+                    >
 
-                <button
-                    class="button button-primary button-full"
-                    type="submit"
-                >
-                    Gerät zurückgeben
-                </button>
+                    <button
+                        class="button button-primary button-full"
+                        type="submit"
+                    >
+                        Gerät zurückgeben
+                    </button>
 
-            </form>
+                </form>
+
+            {% else %}
+
+                <div class="availability unavailable">
+
+                    <span></span>
+
+                    <div>
+
+                        <strong>
+                            Rückgabe nicht möglich
+                        </strong>
+
+                        <small>
+                            Die Rückgabe ist nur am
+                            Ausleihterminal möglich.
+                        </small>
+
+                    </div>
+
+                </div>
+
+            {% endif %}
 
 
         {% elif block_reason %}
@@ -205,6 +271,7 @@
                 method="post"
                 action="/device/{{ device.public_id }}/borrow"
                 class="stacked-form"
+                id="borrow-form"
             >
 
                 <input
@@ -230,12 +297,38 @@
                 </label>
 
 
-                <label>
+                <label class="permanent-loan-option">
+
+                    <input
+                        type="checkbox"
+                        id="is-permanent"
+                        name="is_permanent"
+                        value="1"
+                    >
+
+                    <span>
+
+                        <strong>
+                            Dauerhaft ausleihen
+                        </strong>
+
+                        <small>
+                            Bei einer dauerhaften Ausleihe
+                            wird kein Rückgabedatum verlangt.
+                        </small>
+
+                    </span>
+
+                </label>
+
+
+                <label id="return-date-field">
 
                     Voraussichtliche Rückgabe
 
                     <input
                         type="date"
+                        id="expected-return-at"
                         name="expected_return_at"
                         required
                     >
@@ -263,5 +356,61 @@
     </article>
 
 </section>
+
+
+<script>
+    document.addEventListener(
+        "DOMContentLoaded",
+        function () {
+            const permanentCheckbox =
+                document.getElementById(
+                    "is-permanent"
+                );
+
+            const returnDateField =
+                document.getElementById(
+                    "return-date-field"
+                );
+
+            const returnDateInput =
+                document.getElementById(
+                    "expected-return-at"
+                );
+
+            if (
+                !permanentCheckbox
+                || !returnDateField
+                || !returnDateInput
+            ) {
+                return;
+            }
+
+            function updateReturnDateField() {
+                const permanent =
+                    permanentCheckbox.checked;
+
+                returnDateField.hidden =
+                    permanent;
+
+                returnDateInput.required =
+                    !permanent;
+
+                returnDateInput.disabled =
+                    permanent;
+
+                if (permanent) {
+                    returnDateInput.value = "";
+                }
+            }
+
+            permanentCheckbox.addEventListener(
+                "change",
+                updateReturnDateField
+            );
+
+            updateReturnDateField();
+        }
+    );
+</script>
 
 {% endblock %}
