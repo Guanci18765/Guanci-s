@@ -1,7 +1,5 @@
 <!DOCTYPE html>
-
 <html lang="de">
-
 <head>
     <meta charset="utf-8">
 
@@ -12,12 +10,12 @@
 
     <meta
         name="theme-color"
-        content="#0b1220"
+        content="#101828"
     >
 
     <title>
         {% block title %}
-            Inventur
+            Inventurverwaltung
         {% endblock %}
     </title>
 
@@ -27,41 +25,66 @@
     >
 </head>
 
-
 <body>
-
     <header class="site-header">
 
-        <nav class="portal-navigation">
+        <div class="header-left">
 
             <a
-                class="portal-link"
+                class="company-brand"
                 href="/admin/"
+                aria-label="Zur Inventurübersicht"
             >
-                <span class="brand-mark">
-                    Admin
+                <span class="company-logo-shell">
+                    <img
+                        class="company-logo"
+                        src="/static/images/logo.jpg"
+                        alt="Firmenlogo"
+                    >
                 </span>
 
-                <span class="portal-text">
-                    
+                <span class="product-name">
+                    <strong>Inventur</strong>
+                    <small>Device Management</small>
                 </span>
             </a>
 
 
-            <a
-                class="portal-link portal-link-kiosk"
-                href="/kiosk/"
+            <nav
+                class="portal-navigation"
+                aria-label="Bereichsauswahl"
             >
-                <span class="brand-mark kiosk-mark">
-                    Kiosk
-                </span>
+                <a
+                    class="portal-link"
+                    href="/admin/"
+                >
+                    <span class="brand-mark">
+                        AD
+                    </span>
 
-                <span class="portal-text">
-                    
-                </span>
-            </a>
+                    <span class="portal-text">
+                        <strong>Admin</strong>
+                        <small>Verwaltung</small>
+                    </span>
+                </a>
 
-        </nav>
+
+                <a
+                    class="portal-link"
+                    href="/kiosk/"
+                >
+                    <span class="brand-mark kiosk-mark">
+                        KI
+                    </span>
+
+                    <span class="portal-text">
+                        <strong>Kiosk</strong>
+                        <small>Ausleihe</small>
+                    </span>
+                </a>
+            </nav>
+
+        </div>
 
 
         <div class="header-actions">
@@ -73,12 +96,9 @@
 
 
     <main class="page-shell">
-
         {% block content %}
         {% endblock %}
-
     </main>
 
 </body>
-
 </html>
