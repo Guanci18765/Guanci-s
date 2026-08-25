@@ -3,6 +3,7 @@
 <html lang="de">
 
 <head>
+
     <meta charset="utf-8">
 
     <meta
@@ -25,6 +26,7 @@
         rel="stylesheet"
         href="/static/styles.css"
     >
+
 </head>
 
 
@@ -32,41 +34,62 @@
 
     <header class="site-header">
 
-        <nav class="portal-navigation">
+        <div class="header-left">
 
             <a
-                class="portal-link"
+                class="company-logo-link"
                 href="/admin/"
+                aria-label="Zur Admin-Übersicht"
             >
-                <span class="brand-mark">
-                    Admin
-                </span>
 
-                <span class="portal-text">
-                    
-                </span>
+                <img
+                    class="company-logo"
+                    src="/static/images/logo.jpg"
+                    alt="Firmenlogo"
+                >
+
             </a>
 
 
-            <a
-                class="portal-link portal-link-kiosk"
-                href="/kiosk/"
+            <nav
+                class="portal-navigation"
+                aria-label="Bereichsauswahl"
             >
-                <span class="brand-mark kiosk-mark">
-                    Kiosk
-                </span>
 
-                <span class="portal-text">
-                    
-                </span>
-            </a>
+                <a
+                    class="portal-link"
+                    href="/admin/"
+                >
 
-        </nav>
+                    <span class="brand-mark">
+                        Admin
+                    </span>
+
+
+                </a>
+
+
+                <a
+                    class="portal-link"
+                    href="/kiosk/"
+                >
+
+                    <span class="brand-mark kiosk-mark">
+                        Kiosk
+                    </span>
+
+                </a>
+
+            </nav>
+
+        </div>
 
 
         <div class="header-actions">
+
             {% block header_actions %}
             {% endblock %}
+
         </div>
 
     </header>
