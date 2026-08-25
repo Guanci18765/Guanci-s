@@ -1,14 +1,21 @@
 {% extends "base.html" %}
 
+
 {% block title %}
-    {{ 'Gerät bearbeiten' if device and device.public_id else 'Gerät anlegen' }}
+    {{ "Gerät bearbeiten" if device and device.public_id else "Gerät anlegen" }}
     · Inventur
 {% endblock %}
 
+
 {% block header_actions %}
-<a class="button button-ghost" href="/admin/">
+
+<a
+    class="button button-ghost"
+    href="/admin/"
+>
     ← Übersicht
 </a>
+
 {% endblock %}
 
 
@@ -18,24 +25,33 @@
 
     <article class="card form-card">
 
-        <p class="eyebrow">Inventar</p>
+        <p class="eyebrow">
+            Inventar
+        </p>
 
         <h1>
-            {{ 'Gerät bearbeiten' if device and device.public_id else 'Neues Gerät' }}
+            {{ "Gerät bearbeiten" if device and device.public_id else "Neues Gerät" }}
         </h1>
 
         <p class="muted">
-            Hier werden die Eigenschaften und der Inventarstatus des Geräts verwaltet.
+            Hier werden die Eigenschaften und der
+            Inventarstatus des Geräts verwaltet.
         </p>
 
+
         {% if error %}
+
             <div class="alert alert-error">
                 {{ error }}
             </div>
+
         {% endif %}
 
 
-        <form method="post" class="form-grid">
+        <form
+            method="post"
+            class="form-grid"
+        >
 
             <input
                 type="hidden"
@@ -45,6 +61,7 @@
 
 
             <label class="wide">
+
                 Gerätename
 
                 <input
@@ -52,32 +69,83 @@
                     value="{{ device.name if device else '' }}"
                     required
                 >
+
             </label>
 
 
             <label>
+
                 Gerätetyp
 
-                <input
+                <select
                     name="device_type"
-                    value="{{ device.device_type if device else '' }}"
-                    placeholder="Laptop"
                     required
                 >
+
+                    <option
+                        value=""
+                        disabled
+                        {% if not device or not device.device_type %}
+                            selected
+                        {% endif %}
+                    >
+                        Bitte auswählen
+                    </option>
+
+
+                    {% if (
+                        device
+                        and device.device_type
+                        and device.device_type not in device_types
+                    ) %}
+
+                        <option
+                            value="{{ device.device_type }}"
+                            selected
+                        >
+                            {{ device.device_type }}
+                            – nicht in admin.py freigegeben
+                        </option>
+
+                    {% endif %}
+
+
+                    {% for device_type in device_types %}
+
+                        <option
+                            value="{{ device_type }}"
+                            {% if (
+                                device
+                                and device.device_type
+                                == device_type
+                            ) %}
+                                selected
+                            {% endif %}
+                        >
+                            {{ device_type }}
+                        </option>
+
+                    {% endfor %}
+
+                </select>
+
             </label>
 
 
             <label>
+
                 Betriebssystem
 
                 <input
                     name="operating_system"
                     value="{{ device.operating_system if device else '' }}"
                 >
+
             </label>
 
 
             <label>
+
                 Letztes Update
 
                 <input
@@ -88,10 +156,12 @@
                     pattern="[0-9]{2}\.[0-9]{2}\.[0-9]{4}"
                     value="{% if device and device.latest_update_date %}{{ device.latest_update_date | date_de }}{% endif %}"
                 >
+
             </label>
 
 
             <label>
+
                 Standort
 
                 <input
@@ -99,19 +169,24 @@
                     value="{{ device.location if device else 'Büro' }}"
                     placeholder="Berlin · Schrank A"
                 >
+
             </label>
 
 
             <label>
+
                 Setup
 
                 <select name="setup_complete">
 
                     <option
                         value="1"
-                        {% if device and (
-                            device.setup_complete == 1
-                            or device.setup_complete == '1'
+                        {% if (
+                            device
+                            and (
+                                device.setup_complete == 1
+                                or device.setup_complete == "1"
+                            )
                         ) %}
                             selected
                         {% endif %}
@@ -121,9 +196,10 @@
 
                     <option
                         value="0"
-                        {% if not device or (
-                            device.setup_complete == 0
-                            or device.setup_complete == '0'
+                        {% if (
+                            not device
+                            or device.setup_complete == 0
+                            or device.setup_complete == "0"
                         ) %}
                             selected
                         {% endif %}
@@ -132,17 +208,22 @@
                     </option>
 
                 </select>
+
             </label>
 
 
             <label>
+
                 Technischer Zustand
 
                 <select name="condition">
 
                     <option
                         value="ready"
-                        {% if not device or device.condition == 'ready' %}
+                        {% if (
+                            not device
+                            or device.condition == "ready"
+                        ) %}
                             selected
                         {% endif %}
                     >
@@ -151,7 +232,10 @@
 
                     <option
                         value="service"
-                        {% if device and device.condition == 'service' %}
+                        {% if (
+                            device
+                            and device.condition == "service"
+                        ) %}
                             selected
                         {% endif %}
                     >
@@ -160,7 +244,10 @@
 
                     <option
                         value="defective"
-                        {% if device and device.condition == 'defective' %}
+                        {% if (
+                            device
+                            and device.condition == "defective"
+                        ) %}
                             selected
                         {% endif %}
                     >
@@ -168,19 +255,22 @@
                     </option>
 
                 </select>
+
             </label>
 
 
             <label>
+
                 Inventarstatus
 
                 <select name="is_active">
 
                     <option
                         value="1"
-                        {% if not device or (
-                            device.is_active == 1
-                            or device.is_active == '1'
+                        {% if (
+                            not device
+                            or device.is_active == 1
+                            or device.is_active == "1"
                         ) %}
                             selected
                         {% endif %}
@@ -190,9 +280,12 @@
 
                     <option
                         value="0"
-                        {% if device and (
-                            device.is_active == 0
-                            or device.is_active == '0'
+                        {% if (
+                            device
+                            and (
+                                device.is_active == 0
+                                or device.is_active == "0"
+                            )
                         ) %}
                             selected
                         {% endif %}
@@ -201,6 +294,7 @@
                     </option>
 
                 </select>
+
             </label>
 
 
@@ -223,51 +317,79 @@
             </div>
 
         </form>
+
+
         {% if device and device.public_id %}
 
-    <section class="danger-zone">
+            <section class="danger-zone">
 
-        <h2>Gefahrenbereich</h2>
+                <h2>
+                    Aus Bestand entfernen
+                </h2>
 
-        <p>
-            Das Gerät und der gesamte Ausleihverlauf
-            werden dauerhaft gelöscht.
-        </p>
+                <p>
+                    Das Gerät wird aus dem aktiven Bestand
+                    entfernt und in der Liste „Gelöschte
+                    Geräte“ archiviert. Der Ausleihverlauf
+                    bleibt erhalten.
+                </p>
 
-        <form
-            method="post"
-            action="/admin/devices/{{ device.public_id }}/delete"
-        >
 
-            <input
-                type="hidden"
-                name="csrf_token"
-                value="{{ csrf_token }}"
-            >
-
-            <label>
-                Zur Bestätigung LÖSCHEN eingeben
-
-                <input
-                    name="confirmation"
-                    placeholder="LÖSCHEN"
-                    autocomplete="off"
-                    required
+                <form
+                    method="post"
+                    action="/admin/devices/{{ device.public_id }}/delete"
                 >
-            </label>
 
-            <button
-                class="button button-danger"
-                type="submit"
-            >
-                Gerät endgültig löschen
-            </button>
+                    <input
+                        type="hidden"
+                        name="csrf_token"
+                        value="{{ csrf_token }}"
+                    >
 
-        </form>
 
-    </section>
+                    <label>
 
-{% endif %}
+                        Löschgrund
+
+                        <input
+                            name="deletion_reason"
+                            minlength="3"
+                            maxlength="500"
+                            placeholder="Warum wird das Gerät entfernt?"
+                            autocomplete="off"
+                            required
+                        >
+
+                    </label>
+
+
+                    <label>
+
+                        Zur Bestätigung LÖSCHEN eingeben
+
+                        <input
+                            name="confirmation"
+                            placeholder="LÖSCHEN"
+                            autocomplete="off"
+                            required
+                        >
+
+                    </label>
+
+
+                    <button
+                        class="button button-danger"
+                        type="submit"
+                    >
+                        Gerät aus Bestand entfernen
+                    </button>
+
+                </form>
+
+            </section>
+
+        {% endif %}
+
     </article>
 
 
@@ -279,7 +401,9 @@
                 Geräteaufkleber
             </p>
 
-            <h2>QR-Code</h2>
+            <h2>
+                QR-Code
+            </h2>
 
             <img
                 src="/admin/devices/{{ device.public_id }}/qr.png"

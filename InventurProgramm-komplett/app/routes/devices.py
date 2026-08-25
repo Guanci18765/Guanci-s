@@ -5,16 +5,30 @@ from datetime import date
 from pathlib import Path
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Request
+from fastapi import (
+    APIRouter,
+    HTTPException,
+    Request,
+    status,
+)
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from app.database import database_session, get_connection
+from app.database import (
+    database_session,
+    get_connection,
+)
 from app.formatting import format_date_de
-from app.security import csrf_token, validate_csrf
+from app.security import (
+    can_return_device,
+    csrf_token,
+    validate_csrf,
+)
 
 
-router = APIRouter(prefix="/device")
+router = APIRouter(
+    prefix="/device"
+)
 
 templates = Jinja2Templates(
     directory=(
@@ -32,12 +46,7 @@ def device_redirect(
     message: str | None = None,
     error: str | None = None,
 ) -> RedirectResponse:
-    """
-    Leitet zurück auf die öffentliche Geräteseite.
-
-    Nachrichten und Fehlermeldungen werden korrekt
-    für die URL codiert.
-    """
+    """Leitet zurück auf die öffentliche Geräteseite."""
 
     parameters: dict[str, str] = {}
 
@@ -62,22 +71,28 @@ def get_public_device(
     public_id: str,
 ) -> sqlite3.Row | None:
     """
-    Sucht ein Gerät anhand seiner öffentlichen ID.
-
-    Zusätzlich wird geprüft, ob eine aktive Ausleihe
-    für das Gerät existiert.
+    Sucht ein nicht gelöschtes Gerät und seine
+    aktive Ausleihe.
     """
 
     connection = get_connection()
 
     try:
-        device = connection.execute(
+        return connection.execute(
             """
             SELECT
                 d.*,
+
                 l.id AS active_loan_id,
+
                 l.expected_return_at
-                    AS active_expected_return_at
+                    AS active_expected_return_at,
+
+                COALESCE(
+                    l.is_permanent,
+                    0
+                ) AS active_is_permanent
+
             FROM devices AS d
 
             LEFT JOIN loans AS l
@@ -85,11 +100,10 @@ def get_public_device(
                 AND l.returned_at IS NULL
 
             WHERE d.public_id = ?
+              AND d.deleted_at IS NULL
             """,
             (public_id,),
         ).fetchone()
-
-        return device
 
     finally:
         connection.close()
@@ -98,24 +112,13 @@ def get_public_device(
 def block_reason(
     device: sqlite3.Row,
 ) -> str | None:
-    """
-    Prüft, ob das Gerät ausgeliehen werden darf.
+    """Prüft, ob das Gerät ausgeliehen werden darf."""
 
-    None bedeutet:
-        Das Gerät darf ausgeliehen werden.
-
-    Ein Text bedeutet:
-        Das Gerät ist gesperrt.
-    """
-
-    # Ein bereits ausgeliehenes Gerät darf nicht
-    # erneut ausgeliehen werden.
     if device["active_loan_id"]:
-        return "Dieses Gerät ist derzeit ausgeliehen."
+        return (
+            "Dieses Gerät ist derzeit ausgeliehen."
+        )
 
-    # Eine bestehende Ausleihe kann weiterhin
-    # zurückgegeben werden, auch wenn das Gerät
-    # währenddessen inaktiv gestellt wurde.
     if not device["is_active"]:
         return (
             "Dieses Gerät gehört nicht mehr "
@@ -148,11 +151,11 @@ def device_page(
     message: str | None = None,
     error: str | None = None,
 ):
-    """
-    Zeigt die öffentliche Geräteseite an.
-    """
+    """Zeigt die öffentliche Geräteseite an."""
 
-    device = get_public_device(public_id)
+    device = get_public_device(
+        public_id
+    )
 
     if not device:
         return templates.TemplateResponse(
@@ -167,6 +170,7 @@ def device_page(
         {
             "device": device,
             "block_reason": block_reason(device),
+            "can_return": can_return_device(request),
             "csrf_token": csrf_token(request),
             "message": message,
             "error": error,
@@ -179,20 +183,21 @@ async def borrow_device(
     public_id: str,
     request: Request,
 ):
-    """
-    Speichert eine neue Geräteausleihe.
-    """
+    """Speichert eine neue Geräteausleihe."""
 
-    form = dict(await request.form())
+    form = dict(
+        await request.form()
+    )
 
     validate_csrf(
         request,
         form.get("csrf_token"),
     )
 
-    borrower_name = (
-        form.get("borrower_name", "").strip()
-    )
+    borrower_name = form.get(
+        "borrower_name",
+        "",
+    ).strip()
 
     if (
         len(borrower_name) < 2
@@ -201,56 +206,64 @@ async def borrow_device(
         return device_redirect(
             public_id,
             error=(
-                "Bitte gib deinen vollständigen Namen ein."
+                "Bitte gib deinen vollständigen "
+                "Namen ein."
             ),
         )
 
-    expected_return_at_input = (
-        form.get("expected_return_at", "").strip()
+    is_permanent = (
+        1
+        if form.get("is_permanent") == "1"
+        else 0
     )
 
-    if not expected_return_at_input:
-        return device_redirect(
-            public_id,
-            error=(
-                "Bitte wähle ein voraussichtliches "
-                "Rückgabedatum aus."
-            ),
-        )
+    expected_return_at: str | None = None
 
-    try:
-        expected_return_date = date.fromisoformat(
-            expected_return_at_input
-        )
+    if not is_permanent:
+        expected_return_at_input = form.get(
+            "expected_return_at",
+            "",
+        ).strip()
 
-    except ValueError:
-        return device_redirect(
-            public_id,
-            error=(
-                "Das angegebene Rückgabedatum "
-                "ist ungültig."
-            ),
-        )
+        if not expected_return_at_input:
+            return device_redirect(
+                public_id,
+                error=(
+                    "Bitte wähle ein voraussichtliches "
+                    "Rückgabedatum aus oder aktiviere "
+                    "die dauerhafte Ausleihe."
+                ),
+            )
 
-    if expected_return_date < date.today():
-        return device_redirect(
-            public_id,
-            error=(
-                "Das Rückgabedatum darf nicht "
-                "in der Vergangenheit liegen."
-            ),
-        )
+        try:
+            expected_return_date = date.fromisoformat(
+                expected_return_at_input
+            )
 
-    # Durch isoformat() wird das Datum immer
-    # als YYYY-MM-DD gespeichert.
-    expected_return_at = (
-        expected_return_date.isoformat()
-    )
+        except ValueError:
+            return device_redirect(
+                public_id,
+                error=(
+                    "Das angegebene Rückgabedatum "
+                    "ist ungültig."
+                ),
+            )
+
+        if expected_return_date < date.today():
+            return device_redirect(
+                public_id,
+                error=(
+                    "Das Rückgabedatum darf nicht "
+                    "in der Vergangenheit liegen."
+                ),
+            )
+
+        expected_return_at = (
+            expected_return_date.isoformat()
+        )
 
     try:
         with database_session() as connection:
-            # Verhindert, dass zwei Personen das
-            # Gerät gleichzeitig ausleihen.
             connection.execute(
                 "BEGIN IMMEDIATE"
             )
@@ -260,6 +273,7 @@ async def borrow_device(
                 SELECT
                     d.*,
                     l.id AS active_loan_id
+
                 FROM devices AS d
 
                 LEFT JOIN loans AS l
@@ -267,6 +281,7 @@ async def borrow_device(
                     AND l.returned_at IS NULL
 
                 WHERE d.public_id = ?
+                  AND d.deleted_at IS NULL
                 """,
                 (public_id,),
             ).fetchone()
@@ -274,7 +289,9 @@ async def borrow_device(
             if not device:
                 return device_redirect(
                     public_id,
-                    error="Das Gerät wurde nicht gefunden.",
+                    error=(
+                        "Das Gerät wurde nicht gefunden."
+                    ),
                 )
 
             reason = block_reason(device)
@@ -290,14 +307,16 @@ async def borrow_device(
                 INSERT INTO loans (
                     device_id,
                     borrower_name,
-                    expected_return_at
+                    expected_return_at,
+                    is_permanent
                 )
-                VALUES (?, ?, ?)
+                VALUES (?, ?, ?, ?)
                 """,
                 (
                     device["id"],
                     borrower_name,
                     expected_return_at,
+                    is_permanent,
                 ),
             )
 
@@ -310,11 +329,18 @@ async def borrow_device(
             ),
         )
 
+    if is_permanent:
+        message = (
+            "Dauerhafte Ausleihe erfolgreich gespeichert."
+        )
+    else:
+        message = (
+            "Ausleihe erfolgreich gespeichert."
+        )
+
     return device_redirect(
         public_id,
-        message=(
-            "Ausleihe erfolgreich gespeichert."
-        ),
+        message=message,
     )
 
 
@@ -324,10 +350,24 @@ async def return_device(
     request: Request,
 ):
     """
-    Beendet die aktive Ausleihe eines Geräts.
+    Beendet eine aktive Ausleihe.
+
+    Nur Admin- und Kiosk-Sitzungen dürfen
+    diese Route verwenden.
     """
 
-    form = dict(await request.form())
+    if not can_return_device(request):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Rückgaben sind nur am "
+                "Ausleihterminal möglich."
+            ),
+        )
+
+    form = dict(
+        await request.form()
+    )
 
     validate_csrf(
         request,
@@ -345,6 +385,7 @@ async def return_device(
                 SELECT id
                 FROM devices
                 WHERE public_id = ?
+                  AND deleted_at IS NULL
             )
 
             AND returned_at IS NULL
@@ -352,7 +393,9 @@ async def return_device(
             (public_id,),
         )
 
-        return_was_saved = result.rowcount > 0
+        return_was_saved = (
+            result.rowcount > 0
+        )
 
     if return_was_saved:
         message = (
