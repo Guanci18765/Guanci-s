@@ -8,14 +8,12 @@
 
 
 {% block header_actions %}
-
-<a
-    class="button button-ghost"
-    href="/admin/"
->
-    ← Übersicht
-</a>
-
+    <a
+        class="button button-ghost"
+        href="/admin/"
+    >
+        ← Übersicht
+    </a>
 {% endblock %}
 
 
@@ -34,8 +32,8 @@
         </h1>
 
         <p class="muted">
-            Hier werden die Eigenschaften und der
-            Inventarstatus des Geräts verwaltet.
+            Hier werden die Eigenschaften und der Inventarstatus
+            des Geräts verwaltet.
         </p>
 
 
@@ -47,6 +45,8 @@
 
         {% endif %}
 
+
+        {# Formular zum Erstellen und Bearbeiten eines Gerätes #}
 
         <form
             method="post"
@@ -61,20 +61,19 @@
 
 
             <label class="wide">
-
                 Gerätename
 
                 <input
                     name="name"
                     value="{{ device.name if device else '' }}"
+                    placeholder="Beispiel: ITW-LAPTOP-01"
+                    maxlength="150"
                     required
                 >
-
             </label>
 
 
             <label>
-
                 Gerätetyp
 
                 <select
@@ -93,6 +92,31 @@
                     </option>
 
 
+                    {#
+                        Die angezeigten Gerätetypen werden in
+                        app/routes/admin.py in DEVICE_TYPES festgelegt.
+                    #}
+
+                    {% for type_name in device_types %}
+
+                        <option
+                            value="{{ type_name }}"
+                            {% if device and device.device_type == type_name %}
+                                selected
+                            {% endif %}
+                        >
+                            {{ type_name }}
+                        </option>
+
+                    {% endfor %}
+
+
+                    {#
+                        Falls ein älteres Gerät einen Gerätetyp besitzt,
+                        der nicht mehr in DEVICE_TYPES steht, bleibt
+                        dieser Wert trotzdem auswählbar.
+                    #}
+
                     {% if (
                         device
                         and device.device_type
@@ -104,48 +128,27 @@
                             selected
                         >
                             {{ device.device_type }}
-                            – nicht in admin.py freigegeben
                         </option>
 
                     {% endif %}
 
-
-                    {% for device_type in device_types %}
-
-                        <option
-                            value="{{ device_type }}"
-                            {% if (
-                                device
-                                and device.device_type
-                                == device_type
-                            ) %}
-                                selected
-                            {% endif %}
-                        >
-                            {{ device_type }}
-                        </option>
-
-                    {% endfor %}
-
                 </select>
-
             </label>
 
 
             <label>
-
                 Betriebssystem
 
                 <input
                     name="operating_system"
                     value="{{ device.operating_system if device else '' }}"
+                    placeholder="Beispiel: Windows 11"
+                    maxlength="150"
                 >
-
             </label>
 
 
             <label>
-
                 Letztes Update
 
                 <input
@@ -157,36 +160,34 @@
                     value="{% if device and device.latest_update_date %}{{ device.latest_update_date | date_de }}{% endif %}"
                 >
 
+                <small class="muted">
+                    Beispiel: 25.08.2026
+                </small>
             </label>
 
 
             <label>
-
                 Standort
 
                 <input
                     name="location"
                     value="{{ device.location if device else 'Büro' }}"
-                    placeholder="Berlin · Schrank A"
+                    placeholder="Beispiel: Büro · Schrank A"
+                    maxlength="150"
                 >
-
             </label>
 
 
             <label>
-
                 Setup
 
                 <select name="setup_complete">
 
                     <option
                         value="1"
-                        {% if (
-                            device
-                            and (
-                                device.setup_complete == 1
-                                or device.setup_complete == "1"
-                            )
+                        {% if device and (
+                            device.setup_complete == 1
+                            or device.setup_complete == "1"
                         ) %}
                             selected
                         {% endif %}
@@ -196,9 +197,8 @@
 
                     <option
                         value="0"
-                        {% if (
-                            not device
-                            or device.setup_complete == 0
+                        {% if not device or (
+                            device.setup_complete == 0
                             or device.setup_complete == "0"
                         ) %}
                             selected
@@ -208,22 +208,17 @@
                     </option>
 
                 </select>
-
             </label>
 
 
             <label>
-
                 Technischer Zustand
 
                 <select name="condition">
 
                     <option
                         value="ready"
-                        {% if (
-                            not device
-                            or device.condition == "ready"
-                        ) %}
+                        {% if not device or device.condition == "ready" %}
                             selected
                         {% endif %}
                     >
@@ -232,10 +227,7 @@
 
                     <option
                         value="service"
-                        {% if (
-                            device
-                            and device.condition == "service"
-                        ) %}
+                        {% if device and device.condition == "service" %}
                             selected
                         {% endif %}
                     >
@@ -244,10 +236,7 @@
 
                     <option
                         value="defective"
-                        {% if (
-                            device
-                            and device.condition == "defective"
-                        ) %}
+                        {% if device and device.condition == "defective" %}
                             selected
                         {% endif %}
                     >
@@ -255,21 +244,18 @@
                     </option>
 
                 </select>
-
             </label>
 
 
             <label>
-
                 Inventarstatus
 
                 <select name="is_active">
 
                     <option
                         value="1"
-                        {% if (
-                            not device
-                            or device.is_active == 1
+                        {% if not device or (
+                            device.is_active == 1
                             or device.is_active == "1"
                         ) %}
                             selected
@@ -280,12 +266,9 @@
 
                     <option
                         value="0"
-                        {% if (
-                            device
-                            and (
-                                device.is_active == 0
-                                or device.is_active == "0"
-                            )
+                        {% if device and (
+                            device.is_active == 0
+                            or device.is_active == "0"
                         ) %}
                             selected
                         {% endif %}
@@ -295,6 +278,54 @@
 
                 </select>
 
+                <small class="muted">
+                    Inaktive Geräte bleiben im Inventar, können aber
+                    nicht ausgeliehen werden.
+                </small>
+            </label>
+
+
+            {#
+                Persönliche Geräte sind fest zugeordnet.
+                Sie dürfen nicht über die öffentliche QR-Seite
+                ausgeliehen werden.
+            #}
+
+            <label>
+                Nutzungsart
+
+                <select name="is_personal_device">
+
+                    <option
+                        value="0"
+                        {% if not device or (
+                            device.is_personal_device == 0
+                            or device.is_personal_device == "0"
+                        ) %}
+                            selected
+                        {% endif %}
+                    >
+                        Gemeinschaftsgerät – ausleihbar
+                    </option>
+
+                    <option
+                        value="1"
+                        {% if device and (
+                            device.is_personal_device == 1
+                            or device.is_personal_device == "1"
+                        ) %}
+                            selected
+                        {% endif %}
+                    >
+                        Persönliches Gerät – nicht ausleihbar
+                    </option>
+
+                </select>
+
+                <small class="muted">
+                    Persönliche Geräte sind fest einer Person zugeordnet
+                    und können nicht über den QR-Code ausgeliehen werden.
+                </small>
             </label>
 
 
@@ -319,25 +350,34 @@
         </form>
 
 
+        {#
+            Der Archivierungsbereich wird nur beim Bearbeiten
+            eines bereits existierenden Gerätes angezeigt.
+        #}
+
         {% if device and device.public_id %}
 
             <section class="danger-zone">
 
+                <p class="eyebrow">
+                    Archiv
+                </p>
+
                 <h2>
-                    Aus Bestand entfernen
+                    Gerät aus dem Bestand entfernen
                 </h2>
 
-                <p>
-                    Das Gerät wird aus dem aktiven Bestand
-                    entfernt und in der Liste „Gelöschte
-                    Geräte“ archiviert. Der Ausleihverlauf
-                    bleibt erhalten.
+                <p class="muted">
+                    Das Gerät wird archiviert und kann anschließend
+                    nicht mehr ausgeliehen werden. Der bisherige
+                    Ausleihverlauf bleibt erhalten.
                 </p>
 
 
                 <form
                     method="post"
                     action="/admin/devices/{{ device.public_id }}/delete"
+                    class="stacked-form"
                 >
 
                     <input
@@ -348,32 +388,27 @@
 
 
                     <label>
+                        Grund für die Archivierung
 
-                        Löschgrund
-
-                        <input
+                        <textarea
                             name="deletion_reason"
-                            minlength="3"
+                            rows="4"
                             maxlength="500"
-                            placeholder="Warum wird das Gerät entfernt?"
-                            autocomplete="off"
+                            placeholder="Beispiel: Gerät wurde ausgemustert"
                             required
-                        >
-
+                        ></textarea>
                     </label>
 
 
                     <label>
-
-                        Zur Bestätigung LÖSCHEN eingeben
+                        Zur Bestätigung ARCHIVIEREN eingeben
 
                         <input
                             name="confirmation"
-                            placeholder="LÖSCHEN"
+                            placeholder="ARCHIVIEREN"
                             autocomplete="off"
                             required
                         >
-
                     </label>
 
 
@@ -381,7 +416,7 @@
                         class="button button-danger"
                         type="submit"
                     >
-                        Gerät aus Bestand entfernen
+                        Gerät archivieren
                     </button>
 
                 </form>
@@ -411,8 +446,25 @@
             >
 
             <p class="muted">
-                Diesen Code ausdrucken und auf das Gerät kleben.
+                Diesen QR-Code ausdrucken und auf das Gerät kleben.
             </p>
+
+
+            {% if device.is_personal_device %}
+
+                <div class="alert alert-error">
+                    Dieses Gerät ist persönlich zugeordnet und
+                    kann nicht ausgeliehen werden.
+                </div>
+
+            {% elif not device.is_active %}
+
+                <div class="alert alert-error">
+                    Dieses Gerät ist inaktiv und kann nicht
+                    ausgeliehen werden.
+                </div>
+
+            {% endif %}
 
         </aside>
 
