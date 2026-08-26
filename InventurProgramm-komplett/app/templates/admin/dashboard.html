@@ -7,7 +7,6 @@
 
 
 {% block header_actions %}
-
 <form method="post" action="/admin/logout">
 
     <input
@@ -24,7 +23,6 @@
     </button>
 
 </form>
-
 {% endblock %}
 
 
@@ -82,8 +80,7 @@
         font-size: 0.73rem;
     }
 
-    .dashboard-list-button.is-active
-    .dashboard-list-count {
+    .dashboard-list-button.is-active .dashboard-list-count {
         background: rgba(255, 255, 255, 0.2);
     }
 
@@ -139,7 +136,6 @@
 <section class="hero-row">
 
     <div>
-
         <p class="eyebrow">
             Admin Dashboard
         </p>
@@ -152,7 +148,6 @@
             Verfügbarkeit, Zustand und Ausleihen
             an einem Ort.
         </p>
-
     </div>
 
     <a
@@ -328,6 +323,10 @@
 </nav>
 
 
+{# =====================================================
+   Gerätebestand
+   ===================================================== #}
+
 <section
     class="card table-card dashboard-list-panel"
     id="device-list-panel"
@@ -336,7 +335,6 @@
     <div class="section-heading">
 
         <div>
-
             <p class="eyebrow">
                 Bestand
             </p>
@@ -344,12 +342,10 @@
             <h2>
                 Geräteübersicht
             </h2>
-
         </div>
 
 
         <label>
-
             Gerätetyp filtern
 
             <select id="device-type-filter">
@@ -367,7 +363,6 @@
                 {% endfor %}
 
             </select>
-
         </label>
 
 
@@ -390,7 +385,6 @@
                 <tr>
 
                     <th>
-
                         <button
                             class="table-sort-button"
                             type="button"
@@ -402,12 +396,10 @@
                                 ↕
                             </span>
                         </button>
-
                     </th>
 
 
                     <th>
-
                         <button
                             class="table-sort-button"
                             type="button"
@@ -419,12 +411,10 @@
                                 ↕
                             </span>
                         </button>
-
                     </th>
 
 
                     <th>
-
                         <button
                             class="table-sort-button"
                             type="button"
@@ -436,12 +426,10 @@
                                 ↕
                             </span>
                         </button>
-
                     </th>
 
 
                     <th>
-
                         <div class="combined-sort-heading">
 
                             <button
@@ -471,12 +459,10 @@
                             </button>
 
                         </div>
-
                     </th>
 
 
                     <th>
-
                         <button
                             class="table-sort-button"
                             type="button"
@@ -488,7 +474,6 @@
                                 ↕
                             </span>
                         </button>
-
                     </th>
 
 
@@ -507,6 +492,18 @@
 
             {% for device in devices %}
 
+                {#
+                    Für den Tabellenfilter gibt es nur drei
+                    Gerätekategorien:
+
+                    available = verfügbar
+                    loaned    = ausgeliehen
+                    blocked   = gesperrt
+
+                    Persönliche Geräte gehören ebenfalls
+                    zur Kategorie blocked.
+                #}
+
                 {% if device.active_borrower %}
 
                     {% set filter_status = "loaned" %}
@@ -516,6 +513,11 @@
 
                     {% set filter_status = "blocked" %}
                     {% set sort_status = "Inaktiv" %}
+
+                {% elif device.is_personal_device %}
+
+                    {% set filter_status = "blocked" %}
+                    {% set sort_status = "Persönlich" %}
 
                 {% elif (
                     device.condition == "ready"
@@ -555,7 +557,6 @@
                 >
 
                     <td>
-
                         <strong>
                             {{ device.name }}
                         </strong>
@@ -563,7 +564,6 @@
                         <small>
                             {{ device.device_type }}
                         </small>
-
                     </td>
 
 
@@ -579,6 +579,12 @@
 
                             <span class="badge badge-gray">
                                 Inaktiv
+                            </span>
+
+                        {% elif device.is_personal_device %}
+
+                            <span class="badge badge-gray">
+                                Persönlich
                             </span>
 
                         {% elif (
@@ -660,7 +666,6 @@
 
 
                     <td>
-
                         {{ device.operating_system or "—" }}
 
                         <small>
@@ -670,7 +675,6 @@
                                 | date_de
                             }}
                         </small>
-
                     </td>
 
 
@@ -710,14 +714,12 @@
             {% else %}
 
                 <tr>
-
                     <td
                         colspan="7"
                         class="empty-state"
                     >
                         Noch keine Geräte vorhanden.
                     </td>
-
                 </tr>
 
             {% endfor %}
@@ -727,7 +729,6 @@
                     id="no-filter-results"
                     hidden
                 >
-
                     <td
                         colspan="7"
                         class="empty-state"
@@ -735,7 +736,6 @@
                         Für diesen Filter wurden keine
                         Geräte gefunden.
                     </td>
-
                 </tr>
 
             </tbody>
@@ -747,6 +747,10 @@
 </section>
 
 
+{# =====================================================
+   Überfällige Ausleihen
+   ===================================================== #}
+
 <section
     class="card table-card dashboard-list-panel"
     id="overdue-list-panel"
@@ -756,7 +760,6 @@
     <div class="section-heading">
 
         <div>
-
             <p class="eyebrow">
                 Fristüberschreitung
             </p>
@@ -764,7 +767,6 @@
             <h2>
                 Überfällige Ausleihen
             </h2>
-
         </div>
 
 
@@ -791,7 +793,6 @@
         <table>
 
             <thead>
-
                 <tr>
                     <th>Gerät</th>
                     <th>Benutzer</th>
@@ -800,7 +801,6 @@
                     <th>Überfällig</th>
                     <th></th>
                 </tr>
-
             </thead>
 
 
@@ -811,7 +811,6 @@
                 <tr>
 
                     <td>
-
                         <strong>
                             {{ loan.device_name }}
                         </strong>
@@ -819,7 +818,6 @@
                         <small>
                             {{ loan.device_type }}
                         </small>
-
                     </td>
 
 
@@ -837,19 +835,16 @@
 
 
                     <td>
-
                         <strong>
                             {{
                                 loan.expected_return_at
                                 | date_de
                             }}
                         </strong>
-
                     </td>
 
 
                     <td>
-
                         <span class="badge badge-red">
 
                             {% if loan.overdue_days == 1 %}
@@ -865,19 +860,16 @@
                             {% endif %}
 
                         </span>
-
                     </td>
 
 
                     <td class="actions">
-
                         <a
                             href="/device/{{ loan.public_id }}"
                             target="_blank"
                         >
                             Scan-Seite
                         </a>
-
                     </td>
 
                 </tr>
@@ -885,7 +877,6 @@
             {% else %}
 
                 <tr>
-
                     <td
                         colspan="6"
                         class="empty-state"
@@ -893,7 +884,6 @@
                         Momentan sind keine Ausleihen
                         überfällig.
                     </td>
-
                 </tr>
 
             {% endfor %}
@@ -907,6 +897,10 @@
 </section>
 
 
+{# =====================================================
+   Ausleihverlauf
+   ===================================================== #}
+
 <section
     class="card table-card dashboard-list-panel"
     id="history-list-panel"
@@ -916,7 +910,6 @@
     <div class="section-heading">
 
         <div>
-
             <p class="eyebrow">
                 Verlauf
             </p>
@@ -924,7 +917,6 @@
             <h2>
                 Letzte Ausleihen
             </h2>
-
         </div>
 
     </div>
@@ -935,7 +927,6 @@
         <table>
 
             <thead>
-
                 <tr>
                     <th>Gerät</th>
                     <th>Benutzer</th>
@@ -943,7 +934,6 @@
                     <th>Voraussichtliche Rückgabe</th>
                     <th>Zurückgegeben</th>
                 </tr>
-
             </thead>
 
 
@@ -954,11 +944,9 @@
                 <tr>
 
                     <td>
-
                         <strong>
                             {{ loan.device_name }}
                         </strong>
-
                     </td>
 
 
@@ -1021,14 +1009,12 @@
             {% else %}
 
                 <tr>
-
                     <td
                         colspan="5"
                         class="empty-state"
                     >
                         Noch keine Ausleihen vorhanden.
                     </td>
-
                 </tr>
 
             {% endfor %}
@@ -1042,6 +1028,10 @@
 </section>
 
 
+{# =====================================================
+   Gerätearchiv
+   ===================================================== #}
+
 <section
     class="card table-card dashboard-list-panel"
     id="archive-list-panel"
@@ -1051,7 +1041,6 @@
     <div class="section-heading">
 
         <div>
-
             <p class="eyebrow">
                 Archiv
             </p>
@@ -1059,7 +1048,6 @@
             <h2>
                 Gelöschte Geräte
             </h2>
-
         </div>
 
 
@@ -1085,7 +1073,6 @@
         <table>
 
             <thead>
-
                 <tr>
                     <th>Gerät</th>
                     <th>Gerätetyp</th>
@@ -1094,7 +1081,6 @@
                     <th>Löschgrund</th>
                     <th>Ausleihen</th>
                 </tr>
-
             </thead>
 
 
@@ -1105,11 +1091,9 @@
                 <tr>
 
                     <td>
-
                         <strong>
                             {{ device.name }}
                         </strong>
-
                     </td>
 
 
@@ -1142,7 +1126,6 @@
             {% else %}
 
                 <tr>
-
                     <td
                         colspan="6"
                         class="empty-state"
@@ -1150,7 +1133,6 @@
                         Noch keine gelöschten Geräte
                         vorhanden.
                     </td>
-
                 </tr>
 
             {% endfor %}
