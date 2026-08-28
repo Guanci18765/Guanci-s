@@ -66,30 +66,50 @@ app = FastAPI(
 )
 
 
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=os.getenv(
-        "SESSION_SECRET",
-        "local-development-secret-change-me",
-    ),
-    same_site="lax",
-    https_only=(
-        os.getenv(
-            "FORCE_HTTPS",
-            "false",
-        ).lower()
-        == "true"
-    ),
-)
+session_secret = os.getenv(
+    "SESSION_SECRET",
+    "",
+).strip()
 
 
 if (
+    len(session_secret) < 32
+    or session_secret.startswith("HIER-")
+):
+    raise RuntimeError(
+        "SESSION_SECRET muss in der .env durch einen "
+        "zufälligen Wert mit mindestens 32 Zeichen "
+        "ersetzt werden."
+    )
+
+
+force_https = (
     os.getenv(
         "FORCE_HTTPS",
         "false",
     ).lower()
     == "true"
-):
+)
+
+
+session_cookie_secure = (
+    os.getenv(
+        "SESSION_COOKIE_SECURE",
+        "true" if force_https else "false",
+    ).lower()
+    == "true"
+)
+
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=session_secret,
+    same_site="lax",
+    https_only=session_cookie_secure,
+)
+
+
+if force_https:
     app.add_middleware(
         HTTPSRedirectMiddleware
     )

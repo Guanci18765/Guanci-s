@@ -1,91 +1,61 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 
-def format_date_de(
-    value: str | None,
-) -> str:
-    """
-    Formatiert ein gespeichertes ISO-Datum für die
-    deutsche Anzeige.
+def format_date_de(value: object) -> str:
+    """Formatiert ISO-Datumswerte für die deutsche Anzeige."""
 
-    Beispiele:
+    if value is None:
+        return "Nicht angegeben"
 
-    2026-08-25
-    wird zu:
-    25.08.2026
+    if isinstance(value, datetime):
+        return value.strftime("%d.%m.%Y")
 
-    2026-08-25 14:35:20
-    wird zu:
-    25.08.2026 14:35
-    """
+    if isinstance(value, date):
+        return value.strftime("%d.%m.%Y")
 
-    if not value:
-        return "Unbekannt"
+    text = str(value).strip()
 
-    cleaned_value = value.strip()
+    if not text:
+        return "Nicht angegeben"
 
     try:
-        parsed_value = datetime.fromisoformat(
-            cleaned_value.replace(
-                "Z",
-                "+00:00",
-            )
-        )
-
-    except ValueError:
-        return cleaned_value
-
-    contains_time = (
-        " " in cleaned_value
-        or "T" in cleaned_value
-    )
-
-    if contains_time:
-        return parsed_value.strftime(
-            "%d.%m.%Y %H:%M"
-        )
-
-    return parsed_value.strftime(
-        "%d.%m.%Y"
-    )
-
-
-def parse_date_de(
-    value: str | None,
-) -> str | None:
-    """
-    Wandelt ein deutsches Eingabedatum in das
-    ISO-Format für SQLite um.
-
-    Beispiel:
-
-    25.08.2026
-    wird zu:
-    2026-08-25
-    """
-
-    if not value:
-        return None
-
-    cleaned_value = value.strip()
-
-    if not cleaned_value:
-        return None
-
-    try:
-        parsed_value = datetime.strptime(
-            cleaned_value,
+        return datetime.strptime(
+            text,
             "%d.%m.%Y",
-        )
+        ).strftime("%d.%m.%Y")
+    except ValueError:
+        pass
 
+    try:
+        return date.fromisoformat(
+            text[:10]
+        ).strftime("%d.%m.%Y")
+    except ValueError:
+        return text
+
+
+def parse_date_de(value: str | None) -> str | None:
+    """Wandelt TT.MM.JJJJ in das SQLite-Format JJJJ-MM-TT um."""
+
+    text = (value or "").strip()
+
+    if not text:
+        return None
+
+    try:
+        return datetime.strptime(
+            text,
+            "%d.%m.%Y",
+        ).date().isoformat()
+    except ValueError:
+        pass
+
+    try:
+        return date.fromisoformat(text).isoformat()
     except ValueError as error:
         raise ValueError(
-            "Das Datum muss im Format "
-            "TT.MM.JJJJ eingegeben werden."
+            "Bitte gib ein gültiges Datum im Format "
+            "TT.MM.JJJJ ein."
         ) from error
-
-    return parsed_value.strftime(
-        "%Y-%m-%d"
-    )

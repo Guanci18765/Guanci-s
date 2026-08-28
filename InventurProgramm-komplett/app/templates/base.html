@@ -1,197 +1,80 @@
 <!DOCTYPE html>
 <html lang="de">
-
 <head>
     <meta charset="utf-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1"
-    >
-
-    <meta
-        name="theme-color"
-        content="#101828"
-    >
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#101828">
 
     <title>
-        {% block title %}
-            Inventurverwaltung
-        {% endblock %}
+        {% block title %}Inventurverwaltung{% endblock %}
     </title>
 
-    <link
-        rel="stylesheet"
-        href="/static/styles.css"
-    >
+    <link rel="stylesheet" href="/static/styles.css">
 </head>
 
 <body>
-
     <header class="site-header">
-
         <div class="header-left">
-
             <a
                 class="company-brand"
                 href="/"
                 aria-label="Zur Startseite"
             >
-
                 <span class="company-logo-shell">
-
                     <img
                         class="company-logo"
                         src="/static/images/logo.jpg"
                         alt="Firmenlogo"
                     >
-
                 </span>
 
                 <span class="product-name">
-
-                    <strong>
-                        Inventur
-                    </strong>
-
-                    <small>
-                        Device Management
-                    </small>
-
+                    <strong>Inventur</strong>
+                    <small>Device Management</small>
                 </span>
-
             </a>
-
-
-            <nav
-                class="portal-navigation"
-                aria-label="Anmeldung"
-            >
-
-                {% if request.session.get("user_id") %}
-
-                    <a
-                        class="portal-link"
-                        href="/"
-                    >
-
-                        <span class="brand-mark">
-                            KO
-                        </span>
-
-                        <span class="portal-text">
-
-                            <strong>
-                                {{ request.session.get("full_name") }}
-                            </strong>
-
-                            <small>
-                                {{
-                                    "Administrator"
-                                    if request.session.get("role") == "admin"
-                                    else "Benutzerkonto"
-                                }}
-                            </small>
-
-                        </span>
-
-                    </a>
-
-                {% else %}
-
-                    <a
-                        class="portal-link"
-                        href="/login"
-                    >
-
-                        <span class="brand-mark">
-                            LI
-                        </span>
-
-                        <span class="portal-text">
-
-                            <strong>
-                                Login
-                            </strong>
-
-                            <small>
-                                Benutzer und Admin
-                            </small>
-
-                        </span>
-
-                    </a>
-
-                {% endif %}
-
-            </nav>
-
         </div>
 
-
         <div class="header-actions">
-
             {% if request.session.get("user_id") %}
-
                 {% if request.session.get("role") == "admin" %}
-
-                    <a
-                        class="button button-ghost"
-                        href="/admin/users"
-                    >
-                        Benutzer verwalten
+                    
+                    <a class="button button-ghost" href="/admin/">
+                        Verwaltung
                     </a>
 
+                    <a class="button button-ghost" href="/admin/users">
+                        Benutzer
+                    </a>
                 {% else %}
-
-                    <a
-                        class="button button-ghost"
-                        href="/account/"
-                    >
+                    <a class="button button-ghost" href="/account/">
                         Meine Ausleihen
                     </a>
-
                 {% endif %}
 
-
-                <form
-                    method="post"
-                    action="/logout"
-                >
-
+                <form method="post" action="/logout">
                     <input
                         type="hidden"
                         name="csrf_token"
                         value="{{ request.session.get('csrf_token', '') }}"
                     >
 
-                    <button
-                        class="button button-ghost"
-                        type="submit"
-                    >
+                    <button class="button button-ghost" type="submit">
                         Abmelden
                     </button>
-
                 </form>
-
+            {% else %}
+                <a class="button button-primary" href="/login">
+                    Anmelden
+                </a>
             {% endif %}
 
-
-            {% block header_actions %}
-            {% endblock %}
-
+            {% block header_actions %}{% endblock %}
         </div>
-
     </header>
 
-
     <main class="page-shell">
-
-        {% block content %}
-        {% endblock %}
-
+        {% block content %}{% endblock %}
     </main>
-
 </body>
-
 </html>

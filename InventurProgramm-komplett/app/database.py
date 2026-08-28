@@ -119,6 +119,8 @@ def initialize_database() -> None:
                         is_active IN (0, 1)
                     ),
 
+                session_version INTEGER NOT NULL DEFAULT 1,
+
                 created_at TEXT NOT NULL
                     DEFAULT CURRENT_TIMESTAMP
             );
@@ -213,6 +215,24 @@ def initialize_database() -> None:
             );
             """
         )
+
+        # -------------------------------------------------
+        # Migrationen für users
+        # -------------------------------------------------
+
+        user_columns = get_column_names(
+            connection,
+            "users",
+        )
+
+        if "session_version" not in user_columns:
+            connection.execute(
+                """
+                ALTER TABLE users
+                ADD COLUMN session_version
+                    INTEGER NOT NULL DEFAULT 1
+                """
+            )
 
         # -------------------------------------------------
         # Migrationen für devices

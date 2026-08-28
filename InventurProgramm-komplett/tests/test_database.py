@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import importlib
 import os
 import tempfile
 import unittest
@@ -5,30 +8,89 @@ from pathlib import Path
 
 
 class DatabaseTest(unittest.TestCase):
-    def test_schema_and_active_loan_constraint(self):
-        with tempfile.TemporaryDirectory() as directory:
-            os.environ["DATABASE_PATH"] = str(Path(directory) / "test.db")
-            import importlib
-            import app.database as database
+    def setUp(self) -> None:
+        self.temporary_directory = tempfile.TemporaryDirectory()
+        os.environ["DATABASE_PATH"] = str(
+            Path(self.temporary_directory.name) / "test.db"
+        )
 
-            importlib.reload(database)
-            database.initialize_database()
-            database.seed_demo_data()
+        import app.database as database
 
-            with database.database_session() as connection:
-                device = connection.execute("SELECT * FROM devices LIMIT 1").fetchone()
-                self.assertIsNotNone(device)
-                connection.execute(
-                    "INSERT INTO loans (device_id, borrower_name) VALUES (?, ?)",
-                    (device["id"], "Test User"),
+        self.database = importlib.reload(database)
+        self.database.initialize_database()
+
+    def tearDown(self) -> None:
+        self.temporary_directory.cleanup()
+
+    def test_current_device_schema(self) -> None:
+        connection = self.database.get_connection()
+
+        try:
+            columns = {
+                row["name"]
+                for row in connection.execute(
+                    "PRAGMA table_info(devices)"
+                ).fetchall()
+            }
+        finally:
+            connection.close()
+
+        self.assertTrue(
+            {
+                "serial_number",
+                "last_technical_inspection_date",
+                "purchase_date",
+                "technical_details",
+            }.issubset(columns)
+        )
+
+    def test_users_have_session_version(self) -> None:
+        connection = self.database.get_connection()
+
+        try:
+            columns = {
+                row["name"]
+                for row in connection.execute(
+                    "PRAGMA table_info(users)"
+                ).fetchall()
+            }
+        finally:
+            connection.close()
+
+        self.assertIn("session_version", columns)
+
+    def test_only_one_active_loan_per_device(self) -> None:
+        with self.database.database_session() as connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO devices (
+                    public_id,
+                    name,
+                    device_type,
+                    setup_complete
                 )
+                VALUES ('test-device', 'Testgerät', 'PC', 1)
+                """
+            )
+            device_id = cursor.lastrowid
 
-            with self.assertRaises(Exception):
-                with database.database_session() as connection:
-                    connection.execute(
-                        "INSERT INTO loans (device_id, borrower_name) VALUES (?, ?)",
-                        (device["id"], "Second User"),
-                    )
+            connection.execute(
+                """
+                INSERT INTO loans (device_id, borrower_name)
+                VALUES (?, 'Test User')
+                """,
+                (device_id,),
+            )
+
+        with self.assertRaises(Exception):
+            with self.database.database_session() as connection:
+                connection.execute(
+                    """
+                    INSERT INTO loans (device_id, borrower_name)
+                    VALUES (?, 'Second User')
+                    """,
+                    (device_id,),
+                )
 
 
 if __name__ == "__main__":

@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block title %}Benutzer verwalten · Inventur{% endblock %}
+
+{% block content %}
+<style>
+    .user-actions {
+        display: grid;
+        gap: 9px;
+        min-width: 260px;
+    }
+
+    .user-password-form,
+    .user-button-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .user-password-form input {
+        min-width: 155px;
+    }
+
+    .user-button-row form {
+        margin: 0;
+    }
+
+    @media (max-width: 720px) {
+        .user-password-form,
+        .user-button-row {
+            align-items: stretch;
+            flex-direction: column;
+        }
+    }
+</style>
+
+<section class="hero-row">
+    <div>
+        <p class="eyebrow">Benutzer</p>
+        <h1>Benutzer verwalten</h1>
+        <p class="muted">
+            Passwörter zurücksetzen, Konten sperren oder Benutzer löschen.
+        </p>
+    </div>
+
+    <a class="button button-secondary" href="/admin/users">← Benutzer</a>
+</section>
+
+{% if error %}
+    <div class="alert alert-error">{{ error }}</div>
+{% endif %}
+
+{% if message %}
+    <div class="alert alert-success">{{ message }}</div>
+{% endif %}
+
+<section class="card table-card wide-user-list">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Konten</p>
+            <h2>Vorhandene Benutzer</h2>
+        </div>
+    </div>
+
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Benutzername</th>
+                    <th>Rolle</th>
+                    <th>Aktive Ausleihen</th>
+                    <th>Status</th>
+                    <th>Aktionen</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for account in users %}
+                    <tr>
+                        <td><strong>{{ account.full_name }}</strong></td>
+                        <td>{{ account.username }}</td>
+                        <td>{{ "Admin" if account.role == "admin" else "Ausleiher" }}</td>
+                        <td>{{ account.active_loan_count or 0 }}</td>
+                        <td>
+                            <span class="badge {{ 'badge-green' if account.is_active else 'badge-gray' }}">
+                                {{ "Aktiv" if account.is_active else "Gesperrt" }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="user-actions">
+                                <form
+                                    method="post"
+                                    action="/admin/users/{{ account.id }}/password"
+                                    class="user-password-form"
+                                >
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                    <input
+                                        type="password"
+                                        name="password"
+                                        minlength="10"
+                                        placeholder="Neues Passwort"
+                                        autocomplete="new-password"
+                                        aria-label="Neues Passwort für {{ account.username }}"
+                                        required
+                                    >
+                                    <button class="button button-secondary" type="submit">
+                                        Passwort setzen
+                                    </button>
+                                </form>
+
+                                {% if account.id != request.session.get("user_id") %}
+                                    <div class="user-button-row">
+                                        <form method="post" action="/admin/users/{{ account.id }}/toggle">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                            <button class="button button-secondary" type="submit">
+                                                {{ "Sperren" if account.is_active else "Aktivieren" }}
+                                            </button>
+                                        </form>
+
+                                        <form
+                                            method="post"
+                                            action="/admin/users/{{ account.id }}/delete"
+                                            onsubmit="return confirm('Benutzerkonto {{ account.username }} wirklich löschen?');"
+                                        >
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                            <button class="button button-danger" type="submit">
+                                                Löschen
+                                            </button>
+                                        </form>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="6" class="empty-state">Keine Konten vorhanden.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

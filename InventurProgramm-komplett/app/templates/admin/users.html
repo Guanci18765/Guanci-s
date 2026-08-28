@@ -1,436 +1,85 @@
 {% extends "base.html" %}
 
-
-{% block title %}
-    Benutzerverwaltung · Inventur
-{% endblock %}
-
+{% block title %}Benutzer · Inventur{% endblock %}
 
 {% block content %}
+<style>
+    .user-menu-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 22px;
+    }
+
+    .user-menu-card {
+        min-height: 260px;
+        padding: 30px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .user-menu-card h2 {
+        margin-bottom: 10px;
+    }
+
+    .user-menu-card .muted {
+        flex: 1;
+        margin-bottom: 24px;
+    }
+
+    @media (max-width: 720px) {
+        .user-menu-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .user-menu-card {
+            min-height: 0;
+        }
+
+        .user-menu-card .button {
+            width: 100%;
+        }
+    }
+</style>
 
 <section class="hero-row">
-
     <div>
-
-        <p class="eyebrow">
-            Administration
-        </p>
-
-        <h1>
-            Benutzerkonten
-        </h1>
-
+        <p class="eyebrow">Administration</p>
+        <h1>Benutzer</h1>
         <p class="muted">
-            Nur angelegte und aktive Konten dürfen
-            Geräte ausleihen.
+            Wähle aus, ob du ein neues Konto erstellen oder
+            vorhandene Benutzer verwalten möchtest.
         </p>
-
     </div>
 
-
-    <a
-        class="button button-secondary"
-        href="/admin/"
-    >
-        ← Geräteübersicht
-    </a>
-
+    <a class="button button-secondary" href="/admin/">← Übersicht</a>
 </section>
 
-
-{% if message %}
-
-    <div class="alert alert-success">
-        {{ message }}
-    </div>
-
-{% endif %}
-
-
-{% if error %}
-
-    <div class="alert alert-error">
-        {{ error }}
-    </div>
-
-{% endif %}
-
-
-<section class="form-layout">
-
-    <!-- Neues Benutzerkonto -->
-
-    <article class="card form-card">
-
-        <p class="eyebrow">
-            Neues Konto
-        </p>
-
-        <h2>
-            Benutzer anlegen
-        </h2>
-
+<section class="user-menu-grid">
+    <article class="card user-menu-card">
+        <p class="eyebrow">Neues Konto</p>
+        <h2>Benutzer erstellen</h2>
         <p class="muted">
-            Das Startpasswort kann später durch einen
-            Administrator geändert werden.
+            Lege einen neuen Ausleiher oder Administrator mit
+            Benutzername und Startpasswort an.
         </p>
 
-
-        <form
-            method="post"
-            action="/admin/users/new"
-            class="stacked-form"
-        >
-
-            <input
-                type="hidden"
-                name="csrf_token"
-                value="{{ csrf_token }}"
-            >
-
-
-            <label>
-
-                Benutzername
-
-                <input
-                    name="username"
-                    minlength="3"
-                    maxlength="50"
-                    autocomplete="off"
-                    placeholder="Beispiel: max.mustermann"
-                    required
-                >
-
-            </label>
-
-
-            <label>
-
-                Vollständiger Name
-
-                <input
-                    name="full_name"
-                    minlength="2"
-                    maxlength="100"
-                    autocomplete="name"
-                    placeholder="Max Mustermann"
-                    required
-                >
-
-            </label>
-
-
-            <label>
-
-                Startpasswort
-
-                <input
-                    type="password"
-                    name="password"
-                    minlength="10"
-                    maxlength="200"
-                    autocomplete="new-password"
-                    required
-                >
-
-            </label>
-
-
-            <label>
-
-                Rolle
-
-                <select name="role">
-
-                    <option value="user">
-                        Ausleiher
-                    </option>
-
-                    <option value="admin">
-                        Administrator
-                    </option>
-
-                </select>
-
-            </label>
-
-
-            <button
-                class="button button-primary"
-                type="submit"
-            >
-                Konto anlegen
-            </button>
-
-        </form>
-
+        <a class="button button-primary" href="/admin/users/new">
+            Benutzer erstellen
+        </a>
     </article>
 
-
-    <!-- Vorhandene Benutzerkonten -->
-
-    <article class="card table-card wide-user-list">
-
-        <div class="section-heading">
-
-            <div>
-
-                <p class="eyebrow">
-                    Konten
-                </p>
-
-                <h2>
-                    Vorhandene Benutzer
-                </h2>
-
-            </div>
-
-
-            <span class="muted">
-                {{ users | length }} Konten
-            </span>
-
-        </div>
-
-
-        <div class="table-wrap">
-
-            <table>
-
-                <thead>
-
-                    <tr>
-
-                        <th>
-                            Name
-                        </th>
-
-                        <th>
-                            Benutzername
-                        </th>
-
-                        <th>
-                            Rolle
-                        </th>
-
-                        <th>
-                            Aktive Ausleihen
-                        </th>
-
-                        <th>
-                            Status
-                        </th>
-
-                        <th>
-                            Aktionen
-                        </th>
-
-                    </tr>
-
-                </thead>
-
-
-                <tbody>
-
-                    {% for account in users %}
-
-                        <tr>
-
-                            <td>
-
-                                <strong>
-                                    {{ account.full_name }}
-                                </strong>
-
-                                {% if account.id == request.session.get("user_id") %}
-
-                                    <small>
-                                        Dein Konto
-                                    </small>
-
-                                {% endif %}
-
-                            </td>
-
-
-                            <td>
-                                {{ account.username }}
-                            </td>
-
-
-                            <td>
-
-                                {% if account.role == "admin" %}
-
-                                    <span class="badge badge-blue">
-                                        Administrator
-                                    </span>
-
-                                {% else %}
-
-                                    <span class="badge badge-gray">
-                                        Ausleiher
-                                    </span>
-
-                                {% endif %}
-
-                            </td>
-
-
-                            <td>
-                                {{ account.active_loan_count or 0 }}
-                            </td>
-
-
-                            <td>
-
-                                {% if account.is_active %}
-
-                                    <span class="badge badge-green">
-                                        Aktiv
-                                    </span>
-
-                                {% else %}
-
-                                    <span class="badge badge-red">
-                                        Gesperrt
-                                    </span>
-
-                                {% endif %}
-
-                            </td>
-
-
-                            <td class="user-actions">
-
-                                <!-- Passwort ändern -->
-
-                                <details class="password-reset">
-
-                                    <summary>
-                                        Passwort ändern
-                                    </summary>
-
-
-                                    <form
-                                        method="post"
-                                        action="/admin/users/{{ account.id }}/password"
-                                        class="password-reset-form"
-                                    >
-
-                                        <input
-                                            type="hidden"
-                                            name="csrf_token"
-                                            value="{{ csrf_token }}"
-                                        >
-
-
-                                        <label>
-
-                                            Neues Passwort
-
-                                            <input
-                                                type="password"
-                                                name="new_password"
-                                                minlength="10"
-                                                maxlength="200"
-                                                autocomplete="new-password"
-                                                required
-                                            >
-
-                                        </label>
-
-
-                                        <label>
-
-                                            Passwort wiederholen
-
-                                            <input
-                                                type="password"
-                                                name="password_confirmation"
-                                                minlength="10"
-                                                maxlength="200"
-                                                autocomplete="new-password"
-                                                required
-                                            >
-
-                                        </label>
-
-
-                                        <button
-                                            class="button button-primary"
-                                            type="submit"
-                                        >
-                                            Passwort speichern
-                                        </button>
-
-                                    </form>
-
-                                </details>
-
-
-                                <!-- Konto sperren oder aktivieren -->
-
-                                {% if account.id != request.session.get("user_id") %}
-
-                                    <form
-                                        method="post"
-                                        action="/admin/users/{{ account.id }}/toggle"
-                                    >
-
-                                        <input
-                                            type="hidden"
-                                            name="csrf_token"
-                                            value="{{ csrf_token }}"
-                                        >
-
-
-                                        <button
-                                            class="button button-secondary"
-                                            type="submit"
-                                        >
-
-                                            {% if account.is_active %}
-                                                Sperren
-                                            {% else %}
-                                                Aktivieren
-                                            {% endif %}
-
-                                        </button>
-
-                                    </form>
-
-                                {% endif %}
-
-                            </td>
-
-                        </tr>
-
-
-                    {% else %}
-
-                        <tr>
-
-                            <td
-                                colspan="6"
-                                class="empty-state"
-                            >
-                                Noch keine Benutzerkonten vorhanden.
-                            </td>
-
-                        </tr>
-
-                    {% endfor %}
-
-                </tbody>
-
-            </table>
-
-        </div>
-
+    <article class="card user-menu-card">
+        <p class="eyebrow">Bestehende Konten</p>
+        <h2>Benutzer verwalten</h2>
+        <p class="muted">
+            Setze Passwörter zurück, sperre Konten oder lösche
+            Benutzer, die nicht mehr benötigt werden.
+        </p>
+
+        <a class="button button-secondary" href="/admin/users/manage">
+            Benutzer verwalten
+        </a>
     </article>
-
 </section>
-
 {% endblock %}

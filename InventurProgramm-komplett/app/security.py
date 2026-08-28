@@ -116,8 +116,12 @@ def current_user(request: Request) -> sqlite3.Row | None:
     """
 
     user_id = request.session.get("user_id")
+    session_version = request.session.get("session_version")
 
-    if not isinstance(user_id, int):
+    if (
+        not isinstance(user_id, int)
+        or not isinstance(session_version, int)
+    ):
         return None
 
     connection = get_connection()
@@ -131,12 +135,17 @@ def current_user(request: Request) -> sqlite3.Row | None:
                 full_name,
                 role,
                 is_active,
+                session_version,
                 created_at
             FROM users
             WHERE id = ?
               AND is_active = 1
+              AND session_version = ?
             """,
-            (user_id,),
+            (
+                user_id,
+                session_version,
+            ),
         ).fetchone()
     finally:
         connection.close()

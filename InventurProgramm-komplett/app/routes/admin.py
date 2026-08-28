@@ -15,17 +15,12 @@ from app.database import (
     database_session,
     get_connection,
 )
-from app.device_types import (
-    DEVICE_TYPES,
-    INSPECTION_DEVICE_TYPES,
-    IT_DEVICE_TYPES,
-    device_is_configured,
-)
 from app.formatting import (
     format_date_de,
     parse_date_de,
 )
 from app.security import (
+    admin_credentials_are_valid,
     csrf_token,
     is_admin,
     validate_csrf,
@@ -48,14 +43,22 @@ templates = Jinja2Templates(
 templates.env.filters["date_de"] = format_date_de
 
 
-def login_redirect() -> RedirectResponse:
-    """
-    Leitet nicht angemeldete Benutzer zur
-    Admin-Anmeldung weiter.
-    """
+# Neue Gerätetypen werden hier eingetragen.
+DEVICE_TYPES: tuple[str, ...] = (
+    "Handys",
+    "PC",
+    "Laptops",
+    "Notebooks",
+    "Tablets",
+    "Kamera",
+    "Messgeräte",
+    "Werkzeug",
+)
 
+
+def login_redirect() -> RedirectResponse:
     return RedirectResponse(
-        "/login?next=/admin/",
+        "/admin/login",
         status_code=303,
     )
 
@@ -68,11 +71,8 @@ def render_device_form(
     status_code: int = 200,
 ):
     """
-    Rendert das Formular zum Erstellen oder
-    Bearbeiten eines Gerätes.
-
-    Die Gerätetypen werden zentral aus DEVICE_TYPES
-    an das Template übergeben.
+    Rendert das gemeinsame Formular für neue
+    und bestehende Geräte.
     """
 
     return templates.TemplateResponse(
@@ -81,8 +81,6 @@ def render_device_form(
         {
             "device": device,
             "device_types": DEVICE_TYPES,
-            "it_device_types": IT_DEVICE_TYPES,
-            "inspection_device_types": INSPECTION_DEVICE_TYPES,
             "error": error,
             "csrf_token": csrf_token(request),
         },
@@ -99,8 +97,6 @@ def device_values(
     str | None,
     str | None,
     str | None,
-    str | None,
-    str | None,
     int,
     str,
     str,
@@ -108,10 +104,9 @@ def device_values(
     int,
 ]:
     """
-    Prüft und verarbeitet die Werte aus dem Geräteformular.
+    Prüft die Werte des Geräteformulars.
 
-    Die Reihenfolge der zurückgegebenen Werte muss mit
-    der Reihenfolge der Spalten in den INSERT- und
+    Die Reihenfolge muss mit den INSERT- und
     UPDATE-Abfragen übereinstimmen.
     """
 
@@ -133,10 +128,12 @@ def device_values(
         or None
     )
 
-    latest_update_date_input = form.get(
-        "latest_update_date",
-        "",
-    ).strip()
+    latest_update_date = parse_date_de(
+        form.get(
+            "latest_update_date",
+            "",
+        ).strip()
+    )
 
     purchase_date = parse_date_de(
         form.get(
@@ -152,19 +149,6 @@ def device_values(
         ).strip()
         or None
     )
-
-    serial_number = (
-        form.get(
-            "serial_number",
-            "",
-        ).strip()
-        or None
-    )
-
-    last_technical_inspection_date_input = form.get(
-        "last_technical_inspection_date",
-        "",
-    ).strip()
 
     setup_complete = (
         1
@@ -191,9 +175,6 @@ def device_values(
         else 0
     )
 
-    # Persönliche Geräte sind fest zugeordnet
-    # und dürfen nicht über die öffentliche
-    # QR-Seite ausgeliehen werden.
     is_personal_device = (
         1
         if form.get(
@@ -208,12 +189,6 @@ def device_values(
             "Der Gerätename ist ein Pflichtfeld."
         )
 
-    if technical_details and len(technical_details) > 5000:
-        raise ValueError(
-            "Die technischen Daten dürfen höchstens "
-            "5000 Zeichen lang sein."
-        )
-
     if not DEVICE_TYPES:
         raise ValueError(
             "In admin.py wurden noch keine "
@@ -226,29 +201,6 @@ def device_values(
             "Gerätetyp aus."
         )
 
-    # Nicht passende Formularwerte werden serverseitig
-    # verworfen. Das kann nicht durch Manipulation der
-    # ausgeblendeten HTML-Felder umgangen werden.
-    if device_type in IT_DEVICE_TYPES:
-        latest_update_date = parse_date_de(
-            latest_update_date_input
-        )
-        serial_number = None
-        last_technical_inspection_date = None
-    else:
-        operating_system = None
-        latest_update_date = None
-        last_technical_inspection_date = parse_date_de(
-            last_technical_inspection_date_input
-        )
-        setup_complete = 1
-
-    if serial_number and len(serial_number) > 200:
-        raise ValueError(
-            "Die Seriennummer darf höchstens "
-            "200 Zeichen lang sein."
-        )
-
     if condition not in {
         "ready",
         "service",
@@ -258,6 +210,15 @@ def device_values(
             "Der Gerätezustand ist ungültig."
         )
 
+    if (
+        technical_details
+        and len(technical_details) > 5000
+    ):
+        raise ValueError(
+            "Die technischen Daten dürfen höchstens "
+            "5000 Zeichen lang sein."
+        )
+
     return (
         name,
         device_type,
@@ -265,8 +226,6 @@ def device_values(
         latest_update_date,
         purchase_date,
         technical_details,
-        serial_number,
-        last_technical_inspection_date,
         setup_complete,
         location,
         condition,
@@ -276,25 +235,98 @@ def device_values(
 
 
 # ---------------------------------------------------------
-# Admin-Dashboard
+# Anmeldung
+# ---------------------------------------------------------
+
+
+@router.get("/login")
+def login_page(request: Request):
+    if is_admin(request):
+        return RedirectResponse(
+            "/admin/",
+            status_code=302,
+        )
+
+    return templates.TemplateResponse(
+        request,
+        "admin/login.html",
+        {
+            "csrf_token": csrf_token(request),
+            "error": None,
+        },
+    )
+
+
+@router.post("/login")
+async def login(request: Request):
+    form = dict(
+        await request.form()
+    )
+
+    validate_csrf(
+        request,
+        form.get("csrf_token"),
+    )
+
+    login_valid = admin_credentials_are_valid(
+        form.get("username", ""),
+        form.get("password", ""),
+    )
+
+    if not login_valid:
+        return templates.TemplateResponse(
+            request,
+            "admin/login.html",
+            {
+                "csrf_token": csrf_token(request),
+                "error": (
+                    "Benutzername oder Passwort "
+                    "ist falsch."
+                ),
+            },
+            status_code=401,
+        )
+
+    request.session["is_admin"] = True
+
+    return RedirectResponse(
+        "/admin/",
+        status_code=303,
+    )
+
+
+@router.post("/logout")
+async def logout(request: Request):
+    form = dict(
+        await request.form()
+    )
+
+    validate_csrf(
+        request,
+        form.get("csrf_token"),
+    )
+
+    request.session.clear()
+
+    return RedirectResponse(
+        "/admin/login",
+        status_code=303,
+    )
+
+
+# ---------------------------------------------------------
+# Dashboard
 # ---------------------------------------------------------
 
 
 @router.get("/")
 def dashboard(request: Request):
-    """
-    Lädt Geräte, Ausleihen, überfällige Ausleihen
-    und archivierte Geräte für das Admin-Dashboard.
-    """
-
     if not is_admin(request):
         return login_redirect()
 
     connection = get_connection()
 
     try:
-        # Aktiver Gerätebestand inklusive einer
-        # eventuell vorhandenen aktiven Ausleihe.
         devices = connection.execute(
             """
             SELECT
@@ -326,7 +358,6 @@ def dashboard(request: Request):
             """
         ).fetchall()
 
-        # Die zwölf zuletzt angelegten Ausleihen.
         loans = connection.execute(
             """
             SELECT
@@ -347,12 +378,6 @@ def dashboard(request: Request):
             """
         ).fetchall()
 
-        # Eine Ausleihe ist überfällig, wenn:
-        #
-        # - sie noch nicht zurückgegeben wurde,
-        # - sie nicht dauerhaft ist,
-        # - ein Rückgabedatum vorhanden ist,
-        # - das Rückgabedatum vor dem heutigen Tag liegt.
         overdue_loans = connection.execute(
             """
             SELECT
@@ -416,8 +441,6 @@ def dashboard(request: Request):
             """
         ).fetchall()
 
-        # Archivierte Geräte bleiben in der Datenbank.
-        # Dadurch bleibt ihr Ausleihverlauf erhalten.
         deleted_devices = connection.execute(
             """
             SELECT
@@ -451,9 +474,6 @@ def dashboard(request: Request):
     finally:
         connection.close()
 
-    # Persönliche Geräte gelten als gesperrt,
-    # weil sie nicht für die allgemeine Ausleihe
-    # zur Verfügung stehen.
     counts = {
         "all": len(devices),
 
@@ -464,10 +484,7 @@ def dashboard(request: Request):
                 device["is_active"]
                 and not device["active_borrower"]
                 and device["condition"] == "ready"
-                and device_is_configured(
-                    device["device_type"],
-                    device["setup_complete"],
-                )
+                and device["setup_complete"]
                 and not device["is_personal_device"]
             )
         ),
@@ -487,10 +504,7 @@ def dashboard(request: Request):
                     not device["is_active"]
                     or device["is_personal_device"]
                     or device["condition"] != "ready"
-                    or not device_is_configured(
-                        device["device_type"],
-                        device["setup_complete"],
-                    )
+                    or not device["setup_complete"]
                 )
             )
         ),
@@ -504,8 +518,6 @@ def dashboard(request: Request):
         ),
     }
 
-    # Nur tatsächlich verwendete Gerätetypen
-    # werden im Dashboardfilter angezeigt.
     available_device_types = sorted(
         {
             device["device_type"]
@@ -523,8 +535,6 @@ def dashboard(request: Request):
             "overdue_loans": overdue_loans,
             "deleted_devices": deleted_devices,
             "device_types": available_device_types,
-            "it_device_types": IT_DEVICE_TYPES,
-            "inspection_device_types": INSPECTION_DEVICE_TYPES,
             "counts": counts,
             "csrf_token": csrf_token(request),
         },
@@ -532,16 +542,12 @@ def dashboard(request: Request):
 
 
 # ---------------------------------------------------------
-# Neues Gerät
+# Gerät erstellen
 # ---------------------------------------------------------
 
 
 @router.get("/devices/new")
 def new_device_page(request: Request):
-    """
-    Zeigt das Formular zum Anlegen eines Gerätes an.
-    """
-
     if not is_admin(request):
         return login_redirect()
 
@@ -554,10 +560,6 @@ def new_device_page(request: Request):
 
 @router.post("/devices/new")
 async def create_device(request: Request):
-    """
-    Prüft das Formular und legt ein neues Gerät an.
-    """
-
     if not is_admin(request):
         return login_redirect()
 
@@ -586,8 +588,6 @@ async def create_device(request: Request):
                     latest_update_date,
                     purchase_date,
                     technical_details,
-                    serial_number,
-                    last_technical_inspection_date,
                     setup_complete,
                     location,
                     condition,
@@ -595,7 +595,8 @@ async def create_device(request: Request):
                     is_personal_device
                 )
                 VALUES (
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                    ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?
                 )
                 """,
                 (
@@ -644,10 +645,6 @@ def edit_device_page(
     public_id: str,
     request: Request,
 ):
-    """
-    Zeigt das Bearbeitungsformular eines Gerätes an.
-    """
-
     if not is_admin(request):
         return login_redirect()
 
@@ -685,10 +682,6 @@ async def update_device(
     public_id: str,
     request: Request,
 ):
-    """
-    Prüft und speichert Änderungen an einem Gerät.
-    """
-
     if not is_admin(request):
         return login_redirect()
 
@@ -718,8 +711,6 @@ async def update_device(
                     latest_update_date = ?,
                     purchase_date = ?,
                     technical_details = ?,
-                    serial_number = ?,
-                    last_technical_inspection_date = ?,
                     setup_complete = ?,
                     location = ?,
                     condition = ?,
@@ -755,9 +746,6 @@ async def update_device(
             )
         )
 
-        # Das Formular benötigt die public_id,
-        # damit es weiterhin als Bearbeitungsseite
-        # und nicht als neues Gerät dargestellt wird.
         form["public_id"] = public_id
 
         return render_device_form(
@@ -783,13 +771,6 @@ async def delete_device(
     public_id: str,
     request: Request,
 ):
-    """
-    Archiviert ein Gerät.
-
-    Das Gerät und sein Ausleihverlauf werden nicht
-    physisch aus der Datenbank gelöscht.
-    """
-
     if not is_admin(request):
         return login_redirect()
 
@@ -868,8 +849,6 @@ async def delete_device(
         )
 
     with database_session() as connection:
-        # Ein aktuell ausgeliehenes Gerät muss vor
-        # der Archivierung zurückgegeben werden.
         active_loan = connection.execute(
             """
             SELECT id
@@ -925,14 +904,6 @@ def device_qr(
     public_id: str,
     request: Request,
 ):
-    """
-    Erstellt den QR-Code für die öffentliche
-    Geräteseite.
-
-    PUBLIC_BASE_URL muss eine Adresse enthalten,
-    die das Kioskgerät im Netzwerk erreichen kann.
-    """
-
     if not is_admin(request):
         return login_redirect()
 

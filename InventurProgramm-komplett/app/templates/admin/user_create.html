@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Benutzer erstellen · Inventur{% endblock %}
+
+{% block content %}
+<section class="hero-row">
+    <div>
+        <p class="eyebrow">Benutzer</p>
+        <h1>Benutzer erstellen</h1>
+        <p class="muted">
+            Lege ein neues Benutzerkonto für einen Ausleiher
+            oder Administrator an.
+        </p>
+    </div>
+
+    <a class="button button-secondary" href="/admin/users">← Benutzer</a>
+</section>
+
+<section class="form-layout">
+    <article class="card form-card">
+        {% if error %}
+            <div class="alert alert-error">{{ error }}</div>
+        {% endif %}
+
+        {% if message %}
+            <div class="alert alert-success">{{ message }}</div>
+        {% endif %}
+
+        <form method="post" action="/admin/users/new" class="stacked-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+            <label>
+                Benutzername
+                <input
+                    name="username"
+                    value="{{ form_values.username or '' }}"
+                    minlength="3"
+                    maxlength="50"
+                    autocomplete="username"
+                    required
+                >
+            </label>
+
+            <label>
+                Vollständiger Name
+                <input
+                    name="full_name"
+                    value="{{ form_values.full_name or '' }}"
+                    minlength="2"
+                    maxlength="100"
+                    required
+                >
+            </label>
+
+            <label>
+                Startpasswort
+                <input
+                    type="password"
+                    name="password"
+                    minlength="10"
+                    autocomplete="new-password"
+                    required
+                >
+                <small class="muted">Mindestens 10 Zeichen.</small>
+            </label>
+
+            <label>
+                Rolle
+                <select name="role">
+                    <option
+                        value="user"
+                        {% if form_values.role != "admin" %}selected{% endif %}
+                    >
+                        Ausleiher
+                    </option>
+                    <option
+                        value="admin"
+                        {% if form_values.role == "admin" %}selected{% endif %}
+                    >
+                        Administrator
+                    </option>
+                </select>
+            </label>
+
+            <button class="button button-primary" type="submit">
+                Konto anlegen
+            </button>
+        </form>
+    </article>
+</section>
+{% endblock %}

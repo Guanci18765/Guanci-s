@@ -8,10 +8,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from app.database import (
-    database_session,
-    get_connection,
-)
+from app.database import database_session, get_connection
 from app.formatting import format_date_de
 from app.security import (
     authenticate_user,
@@ -25,55 +22,28 @@ from app.security import (
 
 router = APIRouter()
 
-
 templates = Jinja2Templates(
-    directory=(
-        Path(__file__).resolve().parent.parent
-        / "templates"
-    )
+    directory=Path(__file__).resolve().parent.parent / "templates"
 )
-
 templates.env.filters["date_de"] = format_date_de
 
 
-# ---------------------------------------------------------
-# Hilfsfunktionen
-# ---------------------------------------------------------
-
-
-def safe_next_url(
-    value: str | None,
-) -> str | None:
-    """
-    Erlaubt nur interne Weiterleitungen.
-
-    Dadurch kann ein manipulierter Login-Link den
-    Benutzer nicht auf eine fremde Website umleiten.
-    """
+def safe_next_url(value: str | None) -> str | None:
+    """Erlaubt nur interne Weiterleitungen dieser Webapp."""
 
     if not value:
         return None
 
-    if not value.startswith("/"):
-        return None
-
-    if value.startswith("//"):
+    if not value.startswith("/") or value.startswith("//"):
         return None
 
     return value
 
 
-def destination_for(
-    user: sqlite3.Row,
-    next_url: str | None,
-) -> str:
-    """
-    Bestimmt das Ziel nach erfolgreicher Anmeldung.
-    """
+def destination_for(user, next_url: str | None) -> str:
+    """Bestimmt das Ziel nach einer erfolgreichen Anmeldung."""
 
-    safe_url = safe_next_url(
-        next_url
-    )
+    safe_url = safe_next_url(next_url)
 
     if safe_url:
         return safe_url
@@ -84,134 +54,11 @@ def destination_for(
     return "/account/"
 
 
-def login_redirect(
-    next_url: str,
-) -> RedirectResponse:
-    """
-    Leitet zur gemeinsamen Anmeldung weiter und
-    merkt sich die ursprünglich gewünschte Seite.
-    """
-
-    parameters = urlencode(
-        {
-            "next": next_url,
-        }
-    )
-
+def admin_login_redirect(next_url: str) -> RedirectResponse:
     return RedirectResponse(
-        url=f"/login?{parameters}",
+        f"/login?next={next_url}",
         status_code=303,
     )
-
-
-def users_redirect(
-    *,
-    message: str | None = None,
-    error: str | None = None,
-) -> RedirectResponse:
-    """
-    Leitet zur Benutzerverwaltung zurück.
-
-    Eine Erfolgs- oder Fehlermeldung kann dabei
-    über die URL übertragen werden.
-    """
-
-    parameters: dict[str, str] = {}
-
-    if message:
-        parameters["message"] = message
-
-    if error:
-        parameters["error"] = error
-
-    url = "/admin/users"
-
-    if parameters:
-        url = (
-            f"{url}?"
-            f"{urlencode(parameters)}"
-        )
-
-    return RedirectResponse(
-        url=url,
-        status_code=303,
-    )
-
-
-def load_users() -> list[sqlite3.Row]:
-    """
-    Lädt alle Benutzerkonten für die Administration.
-
-    Zusätzlich wird gezählt, wie viele aktive
-    Ausleihen jedes Konto besitzt.
-    """
-
-    connection = get_connection()
-
-    try:
-        users = connection.execute(
-            """
-            SELECT
-                u.id,
-                u.username,
-                u.full_name,
-                u.role,
-                u.is_active,
-                u.created_at,
-
-                COUNT(
-                    CASE
-                        WHEN l.returned_at IS NULL
-                        THEN 1
-                    END
-                ) AS active_loan_count
-
-            FROM users AS u
-
-            LEFT JOIN loans AS l
-                ON l.user_id = u.id
-
-            GROUP BY
-                u.id
-
-            ORDER BY
-                u.full_name COLLATE NOCASE
-            """
-        ).fetchall()
-
-        return users
-
-    finally:
-        connection.close()
-
-
-def render_user_management(
-    request: Request,
-    *,
-    message: str | None = None,
-    error: str | None = None,
-    status_code: int = 200,
-):
-    """
-    Rendert die Benutzerverwaltung.
-    """
-
-    return templates.TemplateResponse(
-        request,
-        "admin/users.html",
-        {
-            "users": load_users(),
-            "message": message,
-            "error": error,
-            "csrf_token": csrf_token(request),
-        },
-        status_code=status_code,
-    )
-
-
-# ---------------------------------------------------------
-# Gemeinsame Anmeldung
-# ---------------------------------------------------------
 
 
 @router.get("/login")
@@ -219,21 +66,11 @@ def login_page(
     request: Request,
     next: str | None = None,
 ):
-    """
-    Zeigt die gemeinsame Anmeldung für Benutzer
-    und Administratoren.
-    """
-
-    user = current_user(
-        request
-    )
+    user = current_user(request)
 
     if user:
         return RedirectResponse(
-            url=destination_for(
-                user,
-                next,
-            ),
+            destination_for(user, next),
             status_code=302,
         )
 
@@ -242,10 +79,7 @@ def login_page(
         "auth/login.html",
         {
             "csrf_token": csrf_token(request),
-            "next_url": (
-                safe_next_url(next)
-                or ""
-            ),
+            "next_url": safe_next_url(next) or "",
             "error": None,
         },
     )
@@ -253,55 +87,25 @@ def login_page(
 
 @router.get("/admin/login")
 def old_admin_login() -> RedirectResponse:
-    """
-    Leitet alte Admin-Login-Lesezeichen auf die
-    neue gemeinsame Anmeldung weiter.
-    """
+    """Leitet alte Lesezeichen auf die gemeinsame Anmeldung um."""
 
-    return login_redirect(
-        "/admin/"
+    return RedirectResponse(
+        "/login?next=/admin/",
+        status_code=302,
     )
 
 
 @router.post("/login")
-async def login(
-    request: Request,
-):
-    """
-    Prüft Benutzername und Passwort.
-
-    Die Rolle des Kontos entscheidet anschließend,
-    ob das Benutzerkonto oder das Admin-Dashboard
-    geöffnet wird.
-    """
-
-    form = dict(
-        await request.form()
-    )
-
-    validate_csrf(
-        request,
-        form.get("csrf_token"),
-    )
-
-    username = form.get(
-        "username",
-        "",
-    ).strip()
-
-    password = form.get(
-        "password",
-        "",
-    )
-
-    next_url = safe_next_url(
-        form.get("next")
-    )
+async def login(request: Request):
+    form = dict(await request.form())
+    validate_csrf(request, form.get("csrf_token"))
 
     user = authenticate_user(
-        username,
-        password,
+        form.get("username", ""),
+        form.get("password", ""),
     )
+
+    next_url = safe_next_url(form.get("next"))
 
     if not user:
         return templates.TemplateResponse(
@@ -310,97 +114,44 @@ async def login(
             {
                 "csrf_token": csrf_token(request),
                 "next_url": next_url or "",
-                "error": (
-                    "Benutzername oder Passwort "
-                    "ist falsch."
-                ),
+                "error": "Benutzername oder Passwort ist falsch.",
             },
             status_code=401,
         )
 
-    # Die alte Sitzung wird vollständig entfernt.
-    # Das schützt vor Session-Fixation.
+    # Die alte Sitzung wird entfernt, damit sich ein Angreifer
+    # keine vorher bekannte Sitzungs-ID zunutze machen kann.
     request.session.clear()
-
-    request.session["user_id"] = (
-        user["id"]
-    )
-
-    request.session["full_name"] = (
-        user["full_name"]
-    )
-
-    request.session["role"] = (
-        user["role"]
-    )
+    request.session["user_id"] = user["id"]
+    request.session["full_name"] = user["full_name"]
+    request.session["role"] = user["role"]
+    request.session["session_version"] = user["session_version"]
 
     return RedirectResponse(
-        url=destination_for(
-            user,
-            next_url,
-        ),
+        destination_for(user, next_url),
         status_code=303,
     )
 
 
-# ---------------------------------------------------------
-# Abmeldung
-# ---------------------------------------------------------
-
-
-@router.post("/logout")
 @router.post("/admin/logout")
-async def logout(
-    request: Request,
-):
-    """
-    Beendet eine Benutzer- oder Admin-Sitzung.
-    """
-
-    form = dict(
-        await request.form()
-    )
-
-    validate_csrf(
-        request,
-        form.get("csrf_token"),
-    )
-
+@router.post("/logout")
+async def logout(request: Request):
+    form = dict(await request.form())
+    validate_csrf(request, form.get("csrf_token"))
     request.session.clear()
 
-    return RedirectResponse(
-        url="/login",
-        status_code=303,
-    )
-
-
-# ---------------------------------------------------------
-# Benutzerkonto
-# ---------------------------------------------------------
+    return RedirectResponse("/login", status_code=303)
 
 
 @router.get("/account/")
-def account_page(
-    request: Request,
-):
-    """
-    Zeigt einem Benutzer seine eigenen Ausleihen.
-    """
-
-    user = current_user(
-        request
-    )
+def account_page(request: Request):
+    user = current_user(request)
 
     if not user:
-        return login_redirect(
-            "/account/"
-        )
+        return admin_login_redirect("/account/")
 
     if user["role"] == "admin":
-        return RedirectResponse(
-            url="/admin/",
-            status_code=302,
-        )
+        return RedirectResponse("/admin/", status_code=302)
 
     connection = get_connection()
 
@@ -408,32 +159,17 @@ def account_page(
         loans = connection.execute(
             """
             SELECT
-                l.id,
-                l.checked_out_at,
-                l.expected_return_at,
-                l.returned_at,
-                l.is_permanent,
-
+                l.*,
                 d.name AS device_name,
                 d.public_id
-
             FROM loans AS l
-
-            JOIN devices AS d
-                ON d.id = l.device_id
-
+            JOIN devices AS d ON d.id = l.device_id
             WHERE l.user_id = ?
-
-            ORDER BY
-                l.checked_out_at DESC
-
+            ORDER BY l.checked_out_at DESC
             LIMIT 50
             """,
-            (
-                user["id"],
-            ),
+            (user["id"],),
         ).fetchall()
-
     finally:
         connection.close()
 
@@ -448,28 +184,111 @@ def account_page(
     )
 
 
-# ---------------------------------------------------------
-# Benutzerverwaltung
-# ---------------------------------------------------------
+def load_users():
+    """Lädt Benutzerkonten einschließlich aktiver Ausleihen."""
+
+    connection = get_connection()
+
+    try:
+        return connection.execute(
+            """
+            SELECT
+                u.*,
+                COUNT(
+                    CASE
+                        WHEN l.id IS NOT NULL
+                         AND l.returned_at IS NULL THEN 1
+                    END
+                ) AS active_loan_count
+            FROM users AS u
+            LEFT JOIN loans AS l ON l.user_id = u.id
+            GROUP BY u.id
+            ORDER BY u.full_name COLLATE NOCASE
+            """
+        ).fetchall()
+    finally:
+        connection.close()
+
+
+def render_user_management(
+    request: Request,
+    *,
+    error: str | None = None,
+    message: str | None = None,
+    status_code: int = 200,
+):
+    return templates.TemplateResponse(
+        request,
+        "admin/user_manage.html",
+        {
+            "users": load_users(),
+            "error": error,
+            "message": message,
+            "csrf_token": csrf_token(request),
+        },
+        status_code=status_code,
+    )
+
+
+def users_redirect(
+    *,
+    message: str | None = None,
+    error: str | None = None,
+) -> RedirectResponse:
+    parameters: dict[str, str] = {}
+
+    if message:
+        parameters["message"] = message
+    if error:
+        parameters["error"] = error
+
+    url = "/admin/users/manage"
+    if parameters:
+        url = f"{url}?{urlencode(parameters)}"
+
+    return RedirectResponse(url, status_code=303)
 
 
 @router.get("/admin/users")
+def user_menu(request: Request):
+    if not is_admin(request):
+        return admin_login_redirect("/admin/users")
+
+    return templates.TemplateResponse(
+        request,
+        "admin/users.html",
+        {},
+    )
+
+
+@router.get("/admin/users/new")
+def new_user_page(
+    request: Request,
+    message: str | None = None,
+):
+    if not is_admin(request):
+        return admin_login_redirect("/admin/users/new")
+
+    return templates.TemplateResponse(
+        request,
+        "admin/user_create.html",
+        {
+            "message": message,
+            "error": None,
+            "form_values": {},
+            "csrf_token": csrf_token(request),
+        },
+    )
+
+
+@router.get("/admin/users/manage")
 def user_management(
     request: Request,
     message: str | None = None,
     error: str | None = None,
 ):
-    """
-    Zeigt die Benutzerverwaltung.
-
-    Diese Seite darf ausschließlich von einem
-    Administrator geöffnet werden.
-    """
-
     if not is_admin(request):
-        return login_redirect(
-            "/admin/users"
-        )
+        return admin_login_redirect("/admin/users/manage")
 
     return render_user_management(
         request,
@@ -478,348 +297,246 @@ def user_management(
     )
 
 
-# ---------------------------------------------------------
-# Neues Benutzerkonto
-# ---------------------------------------------------------
-
-
 @router.post("/admin/users/new")
-async def create_user(
-    request: Request,
-):
-    """
-    Erstellt ein neues Benutzer- oder Admin-Konto.
-    """
-
+async def create_user(request: Request):
     if not is_admin(request):
-        return login_redirect(
-            "/admin/users"
-        )
+        return admin_login_redirect("/admin/users/new")
 
-    form = dict(
-        await request.form()
-    )
+    form = dict(await request.form())
+    validate_csrf(request, form.get("csrf_token"))
 
-    validate_csrf(
-        request,
-        form.get("csrf_token"),
-    )
+    username = form.get("username", "").strip()
+    full_name = form.get("full_name", "").strip()
+    password = form.get("password", "")
+    role = form.get("role", "user")
 
-    username = form.get(
-        "username",
-        "",
-    ).strip()
+    error: str | None = None
 
-    full_name = form.get(
-        "full_name",
-        "",
-    ).strip()
+    if len(username) < 3 or len(username) > 50:
+        error = "Der Benutzername muss 3 bis 50 Zeichen lang sein."
+    elif len(full_name) < 2 or len(full_name) > 100:
+        error = "Der vollständige Name muss 2 bis 100 Zeichen lang sein."
+    elif len(password) < 10:
+        error = "Das Passwort muss mindestens 10 Zeichen lang sein."
+    elif role not in {"user", "admin"}:
+        error = "Die gewählte Rolle ist ungültig."
 
-    password = form.get(
-        "password",
-        "",
-    )
-
-    role = form.get(
-        "role",
-        "user",
-    )
-
-    if (
-        len(username) < 3
-        or len(username) > 50
-    ):
-        return render_user_management(
-            request,
-            error=(
-                "Der Benutzername muss zwischen "
-                "3 und 50 Zeichen lang sein."
-            ),
-            status_code=400,
-        )
-
-    if (
-        len(full_name) < 2
-        or len(full_name) > 100
-    ):
-        return render_user_management(
-            request,
-            error=(
-                "Der vollständige Name muss zwischen "
-                "2 und 100 Zeichen lang sein."
-            ),
-            status_code=400,
-        )
-
-    if len(password) < 10:
-        return render_user_management(
-            request,
-            error=(
-                "Das Passwort muss mindestens "
-                "10 Zeichen lang sein."
-            ),
-            status_code=400,
-        )
-
-    if len(password) > 200:
-        return render_user_management(
-            request,
-            error=(
-                "Das Passwort ist zu lang."
-            ),
-            status_code=400,
-        )
-
-    if role not in {
-        "user",
-        "admin",
-    }:
-        return render_user_management(
-            request,
-            error=(
-                "Die ausgewählte Benutzerrolle "
-                "ist ungültig."
-            ),
-            status_code=400,
-        )
-
-    try:
-        with database_session() as connection:
-            connection.execute(
-                """
-                INSERT INTO users (
-                    username,
-                    full_name,
-                    password_hash,
-                    role
+    if not error:
+        try:
+            with database_session() as connection:
+                connection.execute(
+                    """
+                    INSERT INTO users (
+                        username,
+                        full_name,
+                        password_hash,
+                        role
+                    )
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (
+                        username,
+                        full_name,
+                        hash_password(password),
+                        role,
+                    ),
                 )
-                VALUES (?, ?, ?, ?)
-                """,
-                (
-                    username,
-                    full_name,
-                    hash_password(password),
-                    role,
-                ),
-            )
+        except sqlite3.IntegrityError:
+            error = "Dieser Benutzername existiert bereits."
 
-    except sqlite3.IntegrityError:
-        return render_user_management(
+    if error:
+        return templates.TemplateResponse(
             request,
-            error=(
-                "Dieser Benutzername "
-                "existiert bereits."
-            ),
+            "admin/user_create.html",
+            {
+                "message": None,
+                "error": error,
+                "form_values": {
+                    "username": username,
+                    "full_name": full_name,
+                    "role": role,
+                },
+                "csrf_token": csrf_token(request),
+            },
             status_code=400,
         )
 
-    return users_redirect(
-        message=(
-            "Benutzerkonto erfolgreich angelegt."
-        ),
+    query = urlencode({"message": "Benutzerkonto wurde angelegt."})
+    return RedirectResponse(
+        f"/admin/users/new?{query}",
+        status_code=303,
     )
 
 
-# ---------------------------------------------------------
-# Passwort zurücksetzen
-# ---------------------------------------------------------
-
-
-@router.post(
-    "/admin/users/{user_id}/password"
-)
-async def change_user_password(
+@router.post("/admin/users/{user_id}/toggle")
+async def toggle_user(
     user_id: int,
     request: Request,
 ):
-    """
-    Erlaubt einem Administrator, das Passwort
-    eines Benutzerkontos zurückzusetzen.
-    """
+    admin = current_user(request)
 
-    if not is_admin(request):
-        return login_redirect(
-            "/admin/users"
+    if not admin or admin["role"] != "admin":
+        return admin_login_redirect("/admin/users/manage")
+
+    form = dict(await request.form())
+    validate_csrf(request, form.get("csrf_token"))
+
+    if user_id == admin["id"]:
+        return users_redirect(
+            error="Das eigene Administratorkonto kann nicht gesperrt werden."
         )
 
-    form = dict(
-        await request.form()
-    )
+    with database_session() as connection:
+        target = connection.execute(
+            "SELECT * FROM users WHERE id = ?",
+            (user_id,),
+        ).fetchone()
 
-    validate_csrf(
-        request,
-        form.get("csrf_token"),
-    )
+        if not target:
+            return users_redirect(error="Benutzerkonto wurde nicht gefunden.")
 
-    new_password = form.get(
-        "new_password",
-        "",
-    )
+        if target["role"] == "admin" and target["is_active"]:
+            active_admin_count = connection.execute(
+                """
+                SELECT COUNT(*)
+                FROM users
+                WHERE role = 'admin'
+                  AND is_active = 1
+                """
+            ).fetchone()[0]
 
-    password_confirmation = form.get(
-        "password_confirmation",
-        "",
-    )
+            if active_admin_count <= 1:
+                return users_redirect(
+                    error="Der letzte aktive Administrator kann nicht gesperrt werden."
+                )
 
-    if len(new_password) < 10:
-        return users_redirect(
-            error=(
-                "Das Passwort muss mindestens "
-                "10 Zeichen lang sein."
-            ),
+        connection.execute(
+            """
+            UPDATE users
+            SET is_active = CASE is_active WHEN 1 THEN 0 ELSE 1 END
+            WHERE id = ?
+            """,
+            (user_id,),
         )
 
-    if len(new_password) > 200:
-        return users_redirect(
-            error=(
-                "Das Passwort ist zu lang."
-            ),
-        )
+    return users_redirect(message="Kontostatus wurde geändert.")
 
-    if (
-        new_password
-        != password_confirmation
-    ):
+
+@router.post("/admin/users/{user_id}/password")
+async def reset_user_password(
+    user_id: int,
+    request: Request,
+):
+    admin = current_user(request)
+
+    if not admin or admin["role"] != "admin":
+        return admin_login_redirect("/admin/users/manage")
+
+    form = dict(await request.form())
+    validate_csrf(request, form.get("csrf_token"))
+
+    password = form.get("password", "")
+
+    if len(password) < 10:
         return users_redirect(
-            error=(
-                "Die Passwörter stimmen "
-                "nicht überein."
-            ),
+            error="Das neue Passwort muss mindestens 10 Zeichen lang sein."
         )
 
     with database_session() as connection:
         result = connection.execute(
             """
             UPDATE users
-
-            SET password_hash = ?
-
+            SET
+                password_hash = ?,
+                session_version = session_version + 1
             WHERE id = ?
             """,
             (
-                hash_password(
-                    new_password
-                ),
+                hash_password(password),
                 user_id,
             ),
         )
 
-    if result.rowcount == 0:
-        return users_redirect(
-            error=(
-                "Das Benutzerkonto wurde "
-                "nicht gefunden."
-            ),
-        )
+        if result.rowcount == 0:
+            return users_redirect(error="Benutzerkonto wurde nicht gefunden.")
 
-    return users_redirect(
-        message=(
-            "Passwort erfolgreich geändert."
-        ),
-    )
+    if user_id == admin["id"]:
+        request.session.clear()
+        return RedirectResponse("/login", status_code=303)
+
+    return users_redirect(message="Das Passwort wurde geändert.")
 
 
-# ---------------------------------------------------------
-# Konto sperren oder aktivieren
-# ---------------------------------------------------------
-
-
-@router.post(
-    "/admin/users/{user_id}/toggle"
-)
-async def toggle_user(
+@router.post("/admin/users/{user_id}/delete")
+async def delete_user(
     user_id: int,
     request: Request,
 ):
-    """
-    Sperrt ein aktives Konto oder aktiviert
-    ein gesperrtes Konto wieder.
-    """
+    admin = current_user(request)
 
-    admin = current_user(
-        request
-    )
+    if not admin or admin["role"] != "admin":
+        return admin_login_redirect("/admin/users/manage")
 
-    if (
-        not admin
-        or admin["role"] != "admin"
-    ):
-        return login_redirect(
-            "/admin/users"
-        )
+    form = dict(await request.form())
+    validate_csrf(request, form.get("csrf_token"))
 
-    form = dict(
-        await request.form()
-    )
-
-    validate_csrf(
-        request,
-        form.get("csrf_token"),
-    )
-
-    # Ein Admin darf sein eigenes Konto nicht
-    # versehentlich sperren.
     if user_id == admin["id"]:
         return users_redirect(
-            error=(
-                "Du kannst dein eigenes "
-                "Admin-Konto nicht sperren."
-            ),
+            error="Das eigene Administratorkonto kann nicht gelöscht werden."
         )
 
     with database_session() as connection:
-        account = connection.execute(
-            """
-            SELECT
-                id,
-                is_active
-
-            FROM users
-
-            WHERE id = ?
-            """,
-            (
-                user_id,
-            ),
+        target = connection.execute(
+            "SELECT * FROM users WHERE id = ?",
+            (user_id,),
         ).fetchone()
 
-        if not account:
+        if not target:
+            return users_redirect(error="Benutzerkonto wurde nicht gefunden.")
+
+        active_loan = connection.execute(
+            """
+            SELECT 1
+            FROM loans
+            WHERE user_id = ?
+              AND returned_at IS NULL
+            LIMIT 1
+            """,
+            (user_id,),
+        ).fetchone()
+
+        if active_loan:
             return users_redirect(
                 error=(
-                    "Das Benutzerkonto wurde "
-                    "nicht gefunden."
-                ),
+                    "Das Benutzerkonto besitzt noch eine aktive Ausleihe. "
+                    "Das Gerät muss zuerst zurückgegeben werden."
+                )
             )
 
-        new_status = (
-            0
-            if account["is_active"]
-            else 1
-        )
+        if target["role"] == "admin" and target["is_active"]:
+            active_admin_count = connection.execute(
+                """
+                SELECT COUNT(*)
+                FROM users
+                WHERE role = 'admin'
+                  AND is_active = 1
+                """
+            ).fetchone()[0]
 
+            if active_admin_count <= 1:
+                return users_redirect(
+                    error="Der letzte aktive Administrator kann nicht gelöscht werden."
+                )
+
+        # Abgeschlossene Ausleihen bleiben mit dem gespeicherten
+        # Ausleihernamen erhalten, werden aber vom Konto getrennt.
         connection.execute(
-            """
-            UPDATE users
-
-            SET is_active = ?
-
-            WHERE id = ?
-            """,
-            (
-                new_status,
-                user_id,
-            ),
+            "UPDATE loans SET user_id = NULL WHERE user_id = ?",
+            (user_id,),
+        )
+        connection.execute(
+            "DELETE FROM users WHERE id = ?",
+            (user_id,),
         )
 
-    if new_status:
-        message = (
-            "Benutzerkonto wurde aktiviert."
-        )
-    else:
-        message = (
-            "Benutzerkonto wurde gesperrt."
-        )
-
-    return users_redirect(
-        message=message,
-    )
+    return users_redirect(message="Benutzerkonto wurde gelöscht.")
