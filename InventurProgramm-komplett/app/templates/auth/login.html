@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Anmelden · Inventur{% endblock %}
+
+{% block content %}
+<section class="scan-shell">
+    <article class="card auth-card">
+        <p class="eyebrow">Inventur</p>
+        <h1>Anmelden</h1>
+
+        <p class="muted">
+            Die Anmeldung gilt für Benutzer und Administratoren.
+        </p>
+
+        {% if error %}
+            <div class="alert alert-error">{{ error }}</div>
+        {% endif %}
+
+        <form method="post" action="/login" class="stacked-form">
+            <input
+                type="hidden"
+                name="csrf_token"
+                value="{{ csrf_token }}"
+            >
+
+            <input
+                type="hidden"
+                name="next"
+                value="{{ next_url }}"
+            >
+
+            <label>
+                Benutzername
+                <input
+                    name="username"
+                    autocomplete="username"
+                    maxlength="50"
+                    required
+                    autofocus
+                >
+            </label>
+
+            <label>
+                Passwort
+                <input
+                    type="password"
+                    name="password"
+                    autocomplete="current-password"
+                    required
+                >
+            </label>
+
+            <button class="button button-primary button-full" type="submit">
+                Anmelden
+            </button>
+        </form>
+    </article>
+</section>
+{% endblock %}

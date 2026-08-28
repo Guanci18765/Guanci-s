@@ -1230,3 +1230,104 @@ textarea:focus {
         height: 44px;
     }
 }
+textarea {
+    width: 100%;
+    min-height: 140px;
+    padding: 13px;
+    border: 1px solid #d5dce7;
+    border-radius: 11px;
+    background: #fff;
+    color: var(--ink);
+    font: inherit;
+    line-height: 1.5;
+    resize: vertical;
+}
+
+textarea:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(37, 94, 232, .12);
+    outline: none;
+}
+
+.header-user-name {
+    color: #d0d5dd;
+    font-size: .86rem;
+    font-weight: 700;
+}
+
+.technical-information {
+    margin: 24px 0;
+    padding: 18px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: #fafbfd;
+}
+
+.technical-information p:last-child {
+    margin-bottom: 0;
+    line-height: 1.6;
+}
+
+.wide-user-list {
+    overflow: hidden;
+}
+.user-actions {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.password-reset summary {
+    color: var(--blue);
+    font-size: .82rem;
+    font-weight: 750;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.password-reset-form {
+    display: grid;
+    gap: 12px;
+    width: 280px;
+    margin-top: 12px;
+    padding: 16px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: var(--shadow);
+}
+
+.password-reset-form .button {
+    width: 100%;
+}
+
+@media (max-width: 600px) {
+    .user-actions {
+        flex-direction: column;
+    }
+
+    .password-reset-form {
+        width: 240px;
+    }
+}
+.readonly-user {
+    display: grid;
+    gap: 8px;
+}
+
+.readonly-user span {
+    color: #344054;
+    font-size: .84rem;
+    font-weight: 700;
+}
+
+.readonly-user strong {
+    display: flex;
+    align-items: center;
+    min-height: 46px;
+    padding: 0 13px;
+    border: 1px solid #d5dce7;
+    border-radius: 11px;
+    background: #f2f4f7;
+    color: var(--ink);
+}

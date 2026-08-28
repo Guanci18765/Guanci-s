@@ -6,24 +6,6 @@
 {% endblock %}
 
 
-{% block header_actions %}
-<form method="post" action="/admin/logout">
-
-    <input
-        type="hidden"
-        name="csrf_token"
-        value="{{ csrf_token }}"
-    >
-
-    <button
-        class="button button-ghost"
-        type="submit"
-    >
-        Abmelden
-    </button>
-
-</form>
-{% endblock %}
 
 
 {% block content %}
@@ -437,7 +419,7 @@
                                 type="button"
                                 data-sort-key="system"
                             >
-                                System
+                                System/Seriennr.
 
                                 <span class="sort-indicator">
                                     ↕
@@ -451,7 +433,7 @@
                                 type="button"
                                 data-sort-key="update"
                             >
-                                Update
+                                Update/Prüfung
 
                                 <span class="sort-indicator">
                                     ↕
@@ -459,6 +441,21 @@
                             </button>
 
                         </div>
+                    </th>
+
+
+                    <th>
+                        <button
+                            class="table-sort-button"
+                            type="button"
+                            data-sort-key="purchase"
+                        >
+                            Anschaffung
+
+                            <span class="sort-indicator">
+                                ↕
+                            </span>
+                        </button>
                     </th>
 
 
@@ -493,8 +490,8 @@
             {% for device in devices %}
 
                 {#
-                    Für den Tabellenfilter gibt es nur drei
-                    Gerätekategorien:
+                    Für den Tabellenfilter gibt es drei
+                    Kategorien:
 
                     available = verfügbar
                     loaned    = ausgeliehen
@@ -521,7 +518,10 @@
 
                 {% elif (
                     device.condition == "ready"
-                    and device.setup_complete
+                    and (
+                        device.device_type not in it_device_types
+                        or device.setup_complete
+                    )
                 ) %}
 
                     {% set filter_status = "available" %}
@@ -551,8 +551,9 @@
                     data-sort-name="{{ device.name }}"
                     data-sort-status="{{ sort_status }}"
                     data-sort-user="{{ device.active_borrower or '' }}"
-                    data-sort-system="{{ device.operating_system or '' }}"
-                    data-sort-update="{{ device.latest_update_date or '' }}"
+                    data-sort-system="{% if device.device_type in inspection_device_types %}{{ device.serial_number or '' }}{% else %}{{ device.operating_system or '' }}{% endif %}"
+                    data-sort-update="{% if device.device_type in inspection_device_types %}{{ device.last_technical_inspection_date or '' }}{% else %}{{ device.latest_update_date or '' }}{% endif %}"
+                    data-sort-purchase="{{ device.purchase_date or '' }}"
                     data-sort-setup="{{ 1 if device.setup_complete else 0 }}"
                 >
 
@@ -589,7 +590,10 @@
 
                         {% elif (
                             device.condition == "ready"
-                            and device.setup_complete
+                            and (
+                                device.device_type not in it_device_types
+                                or device.setup_complete
+                            )
                         ) %}
 
                             <span class="badge badge-green">
@@ -666,24 +670,58 @@
 
 
                     <td>
-                        {{ device.operating_system or "—" }}
+                        {% if device.device_type in inspection_device_types %}
+                            {{ device.serial_number or "—" }}
 
-                        <small>
-                            Update:
-                            {{
-                                device.latest_update_date
-                                | date_de
-                            }}
-                        </small>
+                            <small>
+                                Prüfung:
+                                {{
+                                    device.last_technical_inspection_date
+                                    | date_de
+                                }}
+                            </small>
+                        {% else %}
+                            {{ device.operating_system or "—" }}
+
+                            <small>
+                                Update:
+                                {{
+                                    device.latest_update_date
+                                    | date_de
+                                }}
+                            </small>
+                        {% endif %}
                     </td>
 
 
                     <td>
-                        {{
-                            "Ja"
-                            if device.setup_complete
-                            else "Nein"
-                        }}
+                        {% if device.purchase_date %}
+
+                            {{
+                                device.purchase_date
+                                | date_de
+                            }}
+
+                        {% else %}
+
+                            <span class="muted">
+                                —
+                            </span>
+
+                        {% endif %}
+                    </td>
+
+
+                    <td>
+                        {% if device.device_type in inspection_device_types %}
+                            <span class="muted">—</span>
+                        {% else %}
+                            {{
+                                "Ja"
+                                if device.setup_complete
+                                else "Nein"
+                            }}
+                        {% endif %}
                     </td>
 
 
@@ -715,7 +753,7 @@
 
                 <tr>
                     <td
-                        colspan="7"
+                        colspan="8"
                         class="empty-state"
                     >
                         Noch keine Geräte vorhanden.
@@ -730,7 +768,7 @@
                     hidden
                 >
                     <td
-                        colspan="7"
+                        colspan="8"
                         class="empty-state"
                     >
                         Für diesen Filter wurden keine

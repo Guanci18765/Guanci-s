@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Meine Ausleihen · Inventur{% endblock %}
+
+{% block content %}
+<section class="hero-row">
+    <div>
+        <p class="eyebrow">Benutzerkonto</p>
+        <h1>Hallo {{ user.full_name }}.</h1>
+        <p class="muted">Hier siehst du deine letzten Ausleihen.</p>
+    </div>
+</section>
+
+<section class="card table-card">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Verlauf</p>
+            <h2>Meine Ausleihen</h2>
+        </div>
+    </div>
+
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Gerät</th>
+                    <th>Ausgeliehen</th>
+                    <th>Geplante Rückgabe</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for loan in loans %}
+                    <tr>
+                        <td>
+                            <a href="/device/{{ loan.public_id }}">
+                                <strong>{{ loan.device_name }}</strong>
+                            </a>
+                        </td>
+                        <td>{{ loan.checked_out_at }}</td>
+                        <td>{{ loan.expected_return_at | date_de }}</td>
+                        <td>
+                            {{ "Noch aktiv" if not loan.returned_at else "Zurückgegeben" }}
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="4" class="empty-state">
+                            Noch keine Ausleihen vorhanden.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

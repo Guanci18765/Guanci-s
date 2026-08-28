@@ -15,12 +15,17 @@ from app.database import (
     database_session,
     get_connection,
 )
+from app.device_types import (
+    DEVICE_TYPES,
+    INSPECTION_DEVICE_TYPES,
+    IT_DEVICE_TYPES,
+    device_is_configured,
+)
 from app.formatting import (
     format_date_de,
     parse_date_de,
 )
 from app.security import (
-    admin_credentials_are_valid,
     csrf_token,
     is_admin,
     validate_csrf,
@@ -43,26 +48,6 @@ templates = Jinja2Templates(
 templates.env.filters["date_de"] = format_date_de
 
 
-# ---------------------------------------------------------
-# Zulässige Gerätetypen
-# ---------------------------------------------------------
-#
-# Neue Gerätetypen werden ausschließlich hier eingetragen.
-# Die Werte werden im Geräteformular und im Dashboardfilter
-# verwendet.
-
-DEVICE_TYPES: tuple[str, ...] = (
-    "Handys",
-    "PC",
-    "Laptops",
-    "Notebooks",
-    "Tablets",
-    "Kamera",
-    "Messgeräte",
-    "Werkzeug",
-)
-
-
 def login_redirect() -> RedirectResponse:
     """
     Leitet nicht angemeldete Benutzer zur
@@ -70,7 +55,7 @@ def login_redirect() -> RedirectResponse:
     """
 
     return RedirectResponse(
-        "/admin/login",
+        "/login?next=/admin/",
         status_code=303,
     )
 
@@ -96,6 +81,8 @@ def render_device_form(
         {
             "device": device,
             "device_types": DEVICE_TYPES,
+            "it_device_types": IT_DEVICE_TYPES,
+            "inspection_device_types": INSPECTION_DEVICE_TYPES,
             "error": error,
             "csrf_token": csrf_token(request),
         },
@@ -108,6 +95,10 @@ def device_values(
 ) -> tuple[
     str,
     str,
+    str | None,
+    str | None,
+    str | None,
+    str | None,
     str | None,
     str | None,
     int,
@@ -142,12 +133,38 @@ def device_values(
         or None
     )
 
-    latest_update_date = parse_date_de(
+    latest_update_date_input = form.get(
+        "latest_update_date",
+        "",
+    ).strip()
+
+    purchase_date = parse_date_de(
         form.get(
-            "latest_update_date",
+            "purchase_date",
             "",
         ).strip()
     )
+
+    technical_details = (
+        form.get(
+            "technical_details",
+            "",
+        ).strip()
+        or None
+    )
+
+    serial_number = (
+        form.get(
+            "serial_number",
+            "",
+        ).strip()
+        or None
+    )
+
+    last_technical_inspection_date_input = form.get(
+        "last_technical_inspection_date",
+        "",
+    ).strip()
 
     setup_complete = (
         1
@@ -191,6 +208,12 @@ def device_values(
             "Der Gerätename ist ein Pflichtfeld."
         )
 
+    if technical_details and len(technical_details) > 5000:
+        raise ValueError(
+            "Die technischen Daten dürfen höchstens "
+            "5000 Zeichen lang sein."
+        )
+
     if not DEVICE_TYPES:
         raise ValueError(
             "In admin.py wurden noch keine "
@@ -201,6 +224,29 @@ def device_values(
         raise ValueError(
             "Bitte wähle einen gültigen "
             "Gerätetyp aus."
+        )
+
+    # Nicht passende Formularwerte werden serverseitig
+    # verworfen. Das kann nicht durch Manipulation der
+    # ausgeblendeten HTML-Felder umgangen werden.
+    if device_type in IT_DEVICE_TYPES:
+        latest_update_date = parse_date_de(
+            latest_update_date_input
+        )
+        serial_number = None
+        last_technical_inspection_date = None
+    else:
+        operating_system = None
+        latest_update_date = None
+        last_technical_inspection_date = parse_date_de(
+            last_technical_inspection_date_input
+        )
+        setup_complete = 1
+
+    if serial_number and len(serial_number) > 200:
+        raise ValueError(
+            "Die Seriennummer darf höchstens "
+            "200 Zeichen lang sein."
         )
 
     if condition not in {
@@ -217,104 +263,15 @@ def device_values(
         device_type,
         operating_system,
         latest_update_date,
+        purchase_date,
+        technical_details,
+        serial_number,
+        last_technical_inspection_date,
         setup_complete,
         location,
         condition,
         is_active,
         is_personal_device,
-    )
-
-
-# ---------------------------------------------------------
-# Admin-Anmeldung
-# ---------------------------------------------------------
-
-
-@router.get("/login")
-def login_page(request: Request):
-    """
-    Zeigt die Admin-Anmeldung an.
-    """
-
-    if is_admin(request):
-        return RedirectResponse(
-            "/admin/",
-            status_code=302,
-        )
-
-    return templates.TemplateResponse(
-        request,
-        "admin/login.html",
-        {
-            "csrf_token": csrf_token(request),
-            "error": None,
-        },
-    )
-
-
-@router.post("/login")
-async def login(request: Request):
-    """
-    Prüft die Admin-Zugangsdaten und erstellt
-    bei Erfolg eine Admin-Sitzung.
-    """
-
-    form = dict(
-        await request.form()
-    )
-
-    validate_csrf(
-        request,
-        form.get("csrf_token"),
-    )
-
-    login_valid = admin_credentials_are_valid(
-        form.get("username", ""),
-        form.get("password", ""),
-    )
-
-    if not login_valid:
-        return templates.TemplateResponse(
-            request,
-            "admin/login.html",
-            {
-                "csrf_token": csrf_token(request),
-                "error": (
-                    "Benutzername oder Passwort "
-                    "ist falsch."
-                ),
-            },
-            status_code=401,
-        )
-
-    request.session["is_admin"] = True
-
-    return RedirectResponse(
-        "/admin/",
-        status_code=303,
-    )
-
-
-@router.post("/logout")
-async def logout(request: Request):
-    """
-    Beendet die aktuelle Admin-Sitzung.
-    """
-
-    form = dict(
-        await request.form()
-    )
-
-    validate_csrf(
-        request,
-        form.get("csrf_token"),
-    )
-
-    request.session.clear()
-
-    return RedirectResponse(
-        "/admin/login",
-        status_code=303,
     )
 
 
@@ -507,7 +464,10 @@ def dashboard(request: Request):
                 device["is_active"]
                 and not device["active_borrower"]
                 and device["condition"] == "ready"
-                and device["setup_complete"]
+                and device_is_configured(
+                    device["device_type"],
+                    device["setup_complete"],
+                )
                 and not device["is_personal_device"]
             )
         ),
@@ -527,7 +487,10 @@ def dashboard(request: Request):
                     not device["is_active"]
                     or device["is_personal_device"]
                     or device["condition"] != "ready"
-                    or not device["setup_complete"]
+                    or not device_is_configured(
+                        device["device_type"],
+                        device["setup_complete"],
+                    )
                 )
             )
         ),
@@ -560,6 +523,8 @@ def dashboard(request: Request):
             "overdue_loans": overdue_loans,
             "deleted_devices": deleted_devices,
             "device_types": available_device_types,
+            "it_device_types": IT_DEVICE_TYPES,
+            "inspection_device_types": INSPECTION_DEVICE_TYPES,
             "counts": counts,
             "csrf_token": csrf_token(request),
         },
@@ -619,6 +584,10 @@ async def create_device(request: Request):
                     device_type,
                     operating_system,
                     latest_update_date,
+                    purchase_date,
+                    technical_details,
+                    serial_number,
+                    last_technical_inspection_date,
                     setup_complete,
                     location,
                     condition,
@@ -626,7 +595,7 @@ async def create_device(request: Request):
                     is_personal_device
                 )
                 VALUES (
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
                 )
                 """,
                 (
@@ -747,6 +716,10 @@ async def update_device(
                     device_type = ?,
                     operating_system = ?,
                     latest_update_date = ?,
+                    purchase_date = ?,
+                    technical_details = ?,
+                    serial_number = ?,
+                    last_technical_inspection_date = ?,
                     setup_complete = ?,
                     location = ?,
                     condition = ?,

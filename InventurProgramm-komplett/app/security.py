@@ -3,80 +3,150 @@ from __future__ import annotations
 import hmac
 import os
 import secrets
+import sqlite3
 
 from fastapi import HTTPException, Request, status
+from pwdlib import PasswordHash
+
+from app.database import database_session, get_connection
 
 
-def admin_credentials_are_valid(
-    username: str,
-    password: str,
-) -> bool:
-    expected_user = os.getenv(
-        "ADMIN_USERNAME",
-        "admin",
-    )
-
-    expected_password = os.getenv(
-        "ADMIN_PASSWORD",
-        "change-me",
-    )
-
-    return (
-        hmac.compare_digest(
-            username,
-            expected_user,
-        )
-        and hmac.compare_digest(
-            password,
-            expected_password,
-        )
-    )
+# Passwörter werden ausschließlich als sichere Hashes gespeichert.
+password_hasher = PasswordHash.recommended()
 
 
-def kiosk_pin_is_valid(pin: str) -> bool:
-    """
-    Prüft den eingegebenen Kiosk-PIN.
+def hash_password(password: str) -> str:
+    """Erzeugt den Datenbankwert für ein Passwort."""
 
-    Ohne KIOSK_PIN in der .env ist eine
-    Kiosk-Anmeldung nicht möglich.
-    """
+    return password_hasher.hash(password)
 
-    expected_pin = os.getenv(
-        "KIOSK_PIN",
-        "",
-    )
 
-    if not expected_pin or not pin:
+def verify_password(password: str, password_hash: str) -> bool:
+    """Vergleicht ein Passwort mit seinem gespeicherten Hash."""
+
+    try:
+        return password_hasher.verify(password, password_hash)
+    except Exception:
         return False
 
-    return hmac.compare_digest(
-        pin,
-        expected_pin,
-    )
+
+def ensure_initial_admin() -> None:
+    """Legt beim ersten Start den Admin aus der .env an."""
+
+    username = os.getenv("ADMIN_USERNAME", "admin").strip()
+    full_name = os.getenv(
+        "ADMIN_FULL_NAME",
+        "Administrator",
+    ).strip()
+    password = os.getenv("ADMIN_PASSWORD", "")
+
+    if not username or not full_name or not password:
+        raise RuntimeError(
+            "ADMIN_USERNAME, ADMIN_FULL_NAME und "
+            "ADMIN_PASSWORD müssen in der .env stehen."
+        )
+
+    with database_session() as connection:
+        existing_admin = connection.execute(
+            """
+            SELECT id
+            FROM users
+            WHERE role = 'admin'
+            LIMIT 1
+            """
+        ).fetchone()
+
+        if existing_admin:
+            return
+
+        connection.execute(
+            """
+            INSERT INTO users (
+                username,
+                full_name,
+                password_hash,
+                role
+            )
+            VALUES (?, ?, ?, 'admin')
+            """,
+            (
+                username,
+                full_name,
+                hash_password(password),
+            ),
+        )
+
+
+def authenticate_user(
+    username: str,
+    password: str,
+) -> sqlite3.Row | None:
+    """Prüft die gemeinsame Anmeldung für User und Admins."""
+
+    connection = get_connection()
+
+    try:
+        user = connection.execute(
+            """
+            SELECT *
+            FROM users
+            WHERE username = ? COLLATE NOCASE
+              AND is_active = 1
+            """,
+            (username.strip(),),
+        ).fetchone()
+    finally:
+        connection.close()
+
+    if not user:
+        return None
+
+    if not verify_password(password, user["password_hash"]):
+        return None
+
+    return user
+
+
+def current_user(request: Request) -> sqlite3.Row | None:
+    """
+    Liefert den aktuell angemeldeten aktiven Benutzer.
+
+    Die Datenbank wird erneut geprüft, damit eine Kontosperre
+    sofort wirksam wird.
+    """
+
+    user_id = request.session.get("user_id")
+
+    if not isinstance(user_id, int):
+        return None
+
+    connection = get_connection()
+
+    try:
+        return connection.execute(
+            """
+            SELECT
+                id,
+                username,
+                full_name,
+                role,
+                is_active,
+                created_at
+            FROM users
+            WHERE id = ?
+              AND is_active = 1
+            """,
+            (user_id,),
+        ).fetchone()
+    finally:
+        connection.close()
 
 
 def is_admin(request: Request) -> bool:
-    """Prüft, ob die Sitzung als Admin angemeldet ist."""
+    """Prüft die Rolle des angemeldeten Kontos."""
 
-    return request.session.get("is_admin") is True
-
-
-def is_kiosk(request: Request) -> bool:
-    """Prüft, ob die Sitzung als Kiosk angemeldet ist."""
-
-    return request.session.get("is_kiosk") is True
-
-
-def can_return_device(request: Request) -> bool:
-    """
-    Rückgaben dürfen nur durch einen Admin
-    oder ein angemeldetes Kiosk-Gerät erfolgen.
-    """
-
-    return (
-        is_admin(request)
-        or is_kiosk(request)
-    )
+    user = current_user(request)
+    return bool(user and user["role"] == "admin")
 
 
 def csrf_token(request: Request) -> str:
@@ -97,10 +167,7 @@ def validate_csrf(
 ) -> None:
     """Prüft den CSRF-Token eines Formulars."""
 
-    expected_token = request.session.get(
-        "csrf_token",
-        "",
-    )
+    expected_token = request.session.get("csrf_token", "")
 
     if (
         not submitted_token

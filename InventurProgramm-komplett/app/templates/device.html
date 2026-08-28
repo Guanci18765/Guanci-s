@@ -1,45 +1,40 @@
 {% extends "base.html" %}
 
-
 {% block title %}
     {{ device.name }} · Inventur
 {% endblock %}
 
-
 {% block content %}
 
 <style>
-    .permanent-loan-option {
-        display: grid;
-        grid-template-columns: 22px 1fr;
-        align-items: start;
-        gap: 12px;
-        padding: 14px;
-        border: 1px solid #d5dce7;
-        border-radius: 11px;
+    .technical-specifications {
+        margin: 24px 0;
+        padding: 20px;
+        border: 1px solid #e4e7ec;
+        border-radius: 14px;
         background: #f8fafc;
-        cursor: pointer;
     }
 
-    .permanent-loan-option input {
-        width: 20px;
-        height: 20px;
-        min-height: 20px;
-        margin: 1px 0 0;
+    .technical-specifications h2 {
+        margin-bottom: 12px;
+        font-size: 1rem;
     }
 
-    .permanent-loan-option strong,
-    .permanent-loan-option small {
-        display: block;
+    .technical-specifications-content {
+        margin: 0;
+        color: #344054;
+        font-family: inherit;
+        font-size: .9rem;
+        line-height: 1.7;
+        white-space: pre-line;
     }
 
-    .permanent-loan-option small {
-        margin-top: 4px;
-        color: #667085;
-        font-weight: 400;
+    .readonly-user-input {
+        background: #f2f4f7;
+        color: #344054;
+        cursor: not-allowed;
     }
 </style>
-
 
 <section class="scan-shell">
 
@@ -49,143 +44,101 @@
             {{ device.device_type[:1] | upper }}
         </div>
 
+        <p class="eyebrow">Gerät erkannt</p>
 
-        <p class="eyebrow">
-            Gerät erkannt
-        </p>
-
-
-        <h1>
-            {{ device.name }}
-        </h1>
-
+        <h1>{{ device.name }}</h1>
 
         <p class="muted">
             {{ device.device_type }} · {{ device.location }}
         </p>
 
-
         {% if message %}
-
             <div class="alert alert-success">
                 {{ message }}
             </div>
-
         {% endif %}
 
-
         {% if error %}
-
             <div class="alert alert-error">
                 {{ error }}
             </div>
-
         {% endif %}
-
 
         <dl class="device-details">
 
-            <div>
+            {% if device.device_type in inspection_device_types %}
 
-                <dt>
-                    Betriebssystem
-                </dt>
+                <div>
+                    <dt>Seriennummer</dt>
+                    <dd>{{ device.serial_number or "Nicht angegeben" }}</dd>
+                </div>
 
-                <dd>
-                    {{
-                        device.operating_system
-                        or "Nicht angegeben"
-                    }}
-                </dd>
+                <div>
+                    <dt>Letzte technische Prüfung</dt>
+                    <dd>
+                        {{ device.last_technical_inspection_date | date_de }}
+                    </dd>
+                </div>
 
-            </div>
+            {% else %}
 
+                <div>
+                    <dt>Betriebssystem</dt>
+                    <dd>{{ device.operating_system or "Nicht angegeben" }}</dd>
+                </div>
 
-            <div>
+                <div>
+                    <dt>Letztes Update</dt>
+                    <dd>{{ device.latest_update_date | date_de }}</dd>
+                </div>
 
-                <dt>
-                    Letztes Update
-                </dt>
+                <div>
+                    <dt>Setup</dt>
+                    <dd>
+                        {{ "Abgeschlossen" if device.setup_complete else "Noch offen" }}
+                    </dd>
+                </div>
 
-                <dd>
-                    {{
-                        device.latest_update_date
-                        | date_de
-                    }}
-                </dd>
-
-            </div>
-
-
-            <div>
-
-                <dt>
-                    Setup
-                </dt>
-
-                <dd>
-                    {{
-                        "Abgeschlossen"
-                        if device.setup_complete
-                        else "Noch offen"
-                    }}
-                </dd>
-
-            </div>
+            {% endif %}
 
         </dl>
 
+        {% if device.technical_details %}
+            <section class="technical-specifications">
+                <h2>Technische Daten</h2>
+
+                <p class="technical-specifications-content">
+                    {{ device.technical_details }}
+                </p>
+            </section>
+        {% endif %}
 
         {% if device.active_loan_id %}
 
             <div class="availability unavailable">
-
                 <span></span>
 
                 <div>
-
-                    <strong>
-                        Aktuell ausgeliehen
-                    </strong>
-
+                    <strong>Aktuell ausgeliehen</strong>
 
                     {% if device.active_is_permanent %}
-
-                        <small>
-                            Dauerhafte Ausleihe –
-                            kein Rückgabedatum festgelegt.
-                        </small>
-
+                        <small>Dauerhaft ausgeliehen</small>
                     {% elif device.active_expected_return_at %}
-
                         <small>
                             Voraussichtliche Rückgabe:
-                            {{
-                                device.active_expected_return_at
-                                | date_de
-                            }}
+                            {{ device.active_expected_return_at | date_de }}
                         </small>
-
                     {% else %}
-
-                        <small>
-                            Es wurde kein Rückgabedatum gespeichert.
-                        </small>
-
+                        <small>Noch kein Rückgabedatum vorhanden.</small>
                     {% endif %}
-
                 </div>
-
             </div>
 
-
             {% if can_return %}
-
                 <form
                     method="post"
                     action="/device/{{ device.public_id }}/return"
                 >
-
                     <input
                         type="hidden"
                         name="csrf_token"
@@ -198,143 +151,75 @@
                     >
                         Gerät zurückgeben
                     </button>
-
                 </form>
-
             {% else %}
-
                 <div class="availability unavailable">
-
                     <span></span>
 
                     <div>
-
-                        <strong>
-                            Rückgabe nicht möglich
-                        </strong>
-
+                        <strong>Rückgabe nicht möglich</strong>
                         <small>
-                            Die Rückgabe ist nur am
-                            Ausleihterminal möglich.
+                            Nur der Ausleiher oder ein Administrator
+                            darf dieses Gerät zurückgeben.
                         </small>
-
                     </div>
-
                 </div>
-
             {% endif %}
-
 
         {% elif block_reason %}
 
             <div class="availability unavailable">
-
                 <span></span>
 
                 <div>
-
-                    <strong>
-                        Nicht ausleihbar
-                    </strong>
-
-                    <small>
-                        {{ block_reason }}
-                    </small>
-
+                    <strong>Nicht ausleihbar</strong>
+                    <small>{{ block_reason }}</small>
                 </div>
-
             </div>
-
 
         {% else %}
 
             <div class="availability available">
-
                 <span></span>
 
                 <div>
-
-                    <strong>
-                        Verfügbar
-                    </strong>
-
-                    <small>
-                        Das Gerät kann jetzt ausgeliehen werden.
-                    </small>
-
+                    <strong>Verfügbar</strong>
+                    <small>Das Gerät kann jetzt ausgeliehen werden.</small>
                 </div>
-
             </div>
-
 
             <form
                 method="post"
                 action="/device/{{ device.public_id }}/borrow"
                 class="stacked-form"
-                id="borrow-form"
             >
-
                 <input
                     type="hidden"
                     name="csrf_token"
                     value="{{ csrf_token }}"
                 >
 
+                <label>
+                    Ausleiher
+
+                    <input
+                        class="readonly-user-input"
+                        type="text"
+                        value="{{ logged_in_user.full_name }}"
+                        readonly
+                        tabindex="-1"
+                    >
+                </label>
 
                 <label>
-
-                    Dein vollständiger Name
-
-                    <input
-                        name="borrower_name"
-                        minlength="2"
-                        maxlength="100"
-                        autocomplete="name"
-                        placeholder="Vorname Nachname"
-                        required
-                    >
-
-                </label>
-
-
-                <label class="permanent-loan-option">
-
-                    <input
-                        type="checkbox"
-                        id="is-permanent"
-                        name="is_permanent"
-                        value="1"
-                    >
-
-                    <span>
-
-                        <strong>
-                            Dauerhaft ausleihen
-                        </strong>
-
-                        <small>
-                            Bei einer dauerhaften Ausleihe
-                            wird kein Rückgabedatum verlangt.
-                        </small>
-
-                    </span>
-
-                </label>
-
-
-                <label id="return-date-field">
-
                     Voraussichtliche Rückgabe
 
                     <input
                         type="date"
-                        id="expected-return-at"
                         name="expected_return_at"
                         required
                     >
-
                 </label>
-
 
                 <button
                     class="button button-primary button-full"
@@ -342,75 +227,17 @@
                 >
                     Verbindlich ausleihen
                 </button>
-
             </form>
 
         {% endif %}
 
-
         <p class="privacy-note">
-            Auf dieser öffentlichen Seite wird der Name
-            des aktuellen Benutzers nicht angezeigt.
+            Der Name wird automatisch aus dem angemeldeten
+            Benutzerkonto übernommen und kann hier nicht geändert werden.
         </p>
 
     </article>
 
 </section>
-
-
-<script>
-    document.addEventListener(
-        "DOMContentLoaded",
-        function () {
-            const permanentCheckbox =
-                document.getElementById(
-                    "is-permanent"
-                );
-
-            const returnDateField =
-                document.getElementById(
-                    "return-date-field"
-                );
-
-            const returnDateInput =
-                document.getElementById(
-                    "expected-return-at"
-                );
-
-            if (
-                !permanentCheckbox
-                || !returnDateField
-                || !returnDateInput
-            ) {
-                return;
-            }
-
-            function updateReturnDateField() {
-                const permanent =
-                    permanentCheckbox.checked;
-
-                returnDateField.hidden =
-                    permanent;
-
-                returnDateInput.required =
-                    !permanent;
-
-                returnDateInput.disabled =
-                    permanent;
-
-                if (permanent) {
-                    returnDateInput.value = "";
-                }
-            }
-
-            permanentCheckbox.addEventListener(
-                "change",
-                updateReturnDateField
-            );
-
-            updateReturnDateField();
-        }
-    );
-</script>
 
 {% endblock %}

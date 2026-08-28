@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.httpsredirect import (
@@ -32,8 +32,12 @@ from app.database import (  # noqa: E402
 )
 from app.routes import (  # noqa: E402
     admin,
+    auth,
     devices,
-    kiosk,
+)
+from app.security import (  # noqa: E402
+    current_user,
+    ensure_initial_admin,
 )
 
 
@@ -42,6 +46,7 @@ async def lifespan(
     _: FastAPI,
 ):
     initialize_database()
+    ensure_initial_admin()
 
     if (
         os.getenv(
@@ -100,11 +105,11 @@ app.mount(
 
 
 app.include_router(
-    admin.router
+    auth.router
 )
 
 app.include_router(
-    kiosk.router
+    admin.router
 )
 
 app.include_router(
@@ -116,8 +121,14 @@ app.include_router(
     "/",
     include_in_schema=False,
 )
-def home() -> RedirectResponse:
-    return RedirectResponse(
-        url="/admin/",
-        status_code=302,
-    )
+def home(request: Request) -> RedirectResponse:
+    user = current_user(request)
+
+    if not user:
+        target = "/login"
+    elif user["role"] == "admin":
+        target = "/admin/"
+    else:
+        target = "/account/"
+
+    return RedirectResponse(url=target, status_code=302)
